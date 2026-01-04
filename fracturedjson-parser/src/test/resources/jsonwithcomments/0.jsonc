@@ -1,0 +1,32 @@
+/*
+ * This is a sample JSON file with comments
+ * Used for testing comment preservation
+ */
+{
+    // Banner text for the game
+    "BannerText": ["Sometimes you'll have to protect multiple enemy goals."],
+
+    /* Attack plans define when units spawn */
+    "AttackPlans": [
+        {
+            "Team": 1,
+            "Units": [
+                {"Type": "Grunt", "SpawnTime": 0.0, "SpawnPoint": [1, 8]},
+                {"Type": "Grunt", "SpawnTime": 0.5, "SpawnPoint": [1, 8]},
+                {"Type": "Grunt", "SpawnTime": 1.0, "SpawnPoint": [1, 8]} // More grunts
+            ]
+        }
+    ],
+
+    // Defense plans for team 2
+    "DefensePlans": [
+        {
+            "Team": 2,
+            "Units": [
+                {"Type": "Archer", "Position": [41, 7]},
+                {"Type": "Archer", "Position": [41, 8]},
+                {"Type": "Pikeman", "Position": [40, 7]}
+            ]
+        }
+    ]
+} // End of config

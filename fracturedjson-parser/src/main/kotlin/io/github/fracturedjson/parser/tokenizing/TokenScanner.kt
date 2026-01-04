@@ -301,7 +301,11 @@ object TokenScanner {
         state.buffer.append(firstChar)
         state.advance(isWhitespace = false)
 
-        var phase = if (firstChar == '-') NumberPhase.AfterSign else NumberPhase.WholeDigits
+        var phase = when {
+            firstChar == '-' -> NumberPhase.AfterSign
+            firstChar == '0' -> NumberPhase.AfterLeadingZero
+            else -> NumberPhase.WholeDigits
+        }
 
         while (iterator.hasNext()) {
             val ch = iterator.next()
