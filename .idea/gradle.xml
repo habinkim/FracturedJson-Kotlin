@@ -8,6 +8,11 @@
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/fracturedjson-bom" />
+            <option value="$PROJECT_DIR$/fracturedjson-core" />
+            <option value="$PROJECT_DIR$/fracturedjson-jackson" />
+            <option value="$PROJECT_DIR$/fracturedjson-kotlinx" />
+            <option value="$PROJECT_DIR$/fracturedjson-parser" />
           </set>
         </option>
       </GradleProjectSettings>
