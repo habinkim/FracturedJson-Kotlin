@@ -17,58 +17,67 @@ class PropertyAlignmentTest {
     inner class BasicAlignment {
 
         @Test
-        fun `property values aligned`() {
-            val json = """
+        @DisplayName("Property values aligned")
+        fun propValuesAligned() {
+            val input = """
                 {
-                    "a": 1,
-                    "longPropertyName": 2,
-                    "b": 3
+                    "num": 14,
+                    "string": "testing property alignment",
+                    "arrayWithLongName": [null, null, null]
                 }
             """.trimIndent()
-            val options = FracturedJsonOptions(
-                maxPropNamePadding = 20,
-                maxInlineComplexity = 0,
+
+            val opts = FracturedJsonOptions(
+                maxPropNamePadding = 15,
+                colonBeforePropNamePadding = false,
+                maxInlineComplexity = -1,
+                maxCompactArrayComplexity = -1,
                 jsonEolStyle = EolStyle.Lf
             )
-            val parser = Parser(options)
-            val items = parser.parse(json)
 
-            val formatter = Formatter(options)
-            val result = formatter.format(items[0])
+            val parser = Parser(opts)
+            val formatter = Formatter(opts)
+            val output = formatter.format(parser.parse(input))
+            val outputLines = output.trimEnd().split('\n').toTypedArray()
 
-            // Should produce multi-line output with aligned properties
-            val lines = result.split("\n")
-            assertThat(lines.size).isGreaterThan(1)
-
-            // All properties should be present
-            assertThat(result).contains("\"a\"")
-            assertThat(result).contains("\"longPropertyName\"")
-            assertThat(result).contains("\"b\"")
+            // This object should be expanded with the property values and colons aligned.
+            // The array should be expanded as well.
+            assertThat(outputLines.size).isEqualTo(9)
+            TestHelpers.testInstancesLineUp(outputLines, ":")
         }
 
         @Test
-        fun `property values aligned but not colons`() {
-            val json = """
+        @DisplayName("Property values aligned but not colons")
+        fun propValuesAlignedButNotColons() {
+            val input = """
                 {
-                    "a": 1,
-                    "longPropertyName": 2
+                    "num": 14,
+                    "string": "testing property alignment",
+                    "arrayWithLongName": [null, null, null]
                 }
             """.trimIndent()
-            val options = FracturedJsonOptions(
+
+            val opts = FracturedJsonOptions(
+                maxPropNamePadding = 15,
                 colonBeforePropNamePadding = true,
-                maxPropNamePadding = 20,
-                maxInlineComplexity = 0,
+                maxInlineComplexity = -1,
+                maxCompactArrayComplexity = -1,
                 jsonEolStyle = EolStyle.Lf
             )
-            val parser = Parser(options)
-            val items = parser.parse(json)
 
-            val formatter = Formatter(options)
-            val result = formatter.format(items[0])
+            val parser = Parser(opts)
+            val formatter = Formatter(opts)
+            val output = formatter.format(parser.parse(input))
+            val outputLines = output.trimEnd().split('\n')
 
-            // Colons should hug property names
-            assertThat(result).contains("\"a\":")
-            assertThat(result).contains("\"longPropertyName\":")
+            // This object should be expanded with the property values, but the colons should hug
+            // the prop names instead of being aligned.
+            assertThat(outputLines.size).isEqualTo(9)
+            assertThat(outputLines[1]).contains("\"num\":")
+            assertThat(outputLines[2]).contains("\"string\":")
+            assertThat(outputLines[3]).contains("\"arrayWithLongName\":")
+            assertThat(outputLines[1].indexOf("14")).isEqualTo(outputLines[2].indexOf("\"testing"))
+            assertThat(outputLines[1].indexOf("14")).isEqualTo(outputLines[3].indexOf('['))
         }
     }
 
@@ -77,51 +86,64 @@ class PropertyAlignmentTest {
     inner class AlignmentLimits {
 
         @Test
-        fun `dont align prop vals when too much padding required`() {
-            val json = """
+        @DisplayName("Don't align prop vals when too much padding required")
+        fun dontAlignPropValsWhenTooMuchPaddingRequired() {
+            val input = """
                 {
-                    "x": 1,
-                    "veryVeryVeryLongPropertyName": 2
+                    "num": 14,
+                    "string": "testing property alignment",
+                    "arrayWithLongName": [null, null, null]
                 }
             """.trimIndent()
-            val options = FracturedJsonOptions(
-                maxPropNamePadding = 10,
-                maxInlineComplexity = 0,
+
+            val opts = FracturedJsonOptions(
+                maxPropNamePadding = 12,
+                colonBeforePropNamePadding = false,
+                maxInlineComplexity = -1,
+                maxCompactArrayComplexity = -1,
                 jsonEolStyle = EolStyle.Lf
             )
-            val parser = Parser(options)
-            val items = parser.parse(json)
 
-            val formatter = Formatter(options)
-            val result = formatter.format(items[0])
+            val parser = Parser(opts)
+            val formatter = Formatter(opts)
+            val output = formatter.format(parser.parse(input))
+            val outputLines = output.trimEnd().split('\n')
 
-            // Should still format properly even if alignment is skipped
-            assertThat(result).contains("\"x\"")
-            assertThat(result).contains("\"veryVeryVeryLongPropertyName\"")
+            // This object should be expanded but the property values shouldn't be aligned since
+            // the length of the prop names differ by more than MaxPropNamePadding.
+            assertThat(outputLines.size).isEqualTo(9)
+            assertThat(outputLines[1]).contains("\"num\": 14,")
+            assertThat(outputLines[2]).contains("\"string\": \"testing")
+            assertThat(outputLines[3]).contains("\"arrayWithLongName\": [")
         }
 
         @Test
-        fun `dont align when simple value too long`() {
-            val json = """
+        @DisplayName("Don't align when simple value too long")
+        fun dontAlignWhenSimpleValueTooLong() {
+            val input = """
                 {
-                    "short": 1,
-                    "long": "this is a very long string value that might exceed line length"
+                    "foo": [1, 2, 4],
+                    "bar": null,
+                    "bazzzz": [0]
                 }
             """.trimIndent()
-            val options = FracturedJsonOptions(
-                maxTotalLineLength = 50,
-                maxInlineComplexity = 0,
+
+            val opts = FracturedJsonOptions(
+                commentPolicy = CommentPolicy.Preserve,
+                colonBeforePropNamePadding = false,
+                maxTotalLineLength = 36,
                 jsonEolStyle = EolStyle.Lf
             )
-            val parser = Parser(options)
-            val items = parser.parse(json)
 
-            val formatter = Formatter(options)
-            val result = formatter.format(items[0])
+            val parser = Parser(opts)
+            val formatter = Formatter(opts)
+            val output = formatter.format(parser.parse(input))
+            val outputLines = output.trimEnd().split('\n')
 
-            // Should format without exceeding line length where possible
-            assertThat(result).contains("\"short\"")
-            assertThat(result).contains("\"long\"")
+            // If we tried to align the properties here, bar's null would exceed the line length
+            // due to the padding. FJ should give up on aligning properties in that case.
+            assertThat(output).contains("\"bar\":")
+            assertThat(outputLines[1].indexOf(':')).isNotEqualTo(outputLines[outputLines.size - 2].indexOf(':'))
         }
     }
 
@@ -130,82 +152,92 @@ class PropertyAlignmentTest {
     inner class CommentsAndAlignment {
 
         @Test
-        fun `data preserved when multiline comment present`() {
-            val json = """
+        @DisplayName("Don't align prop vals when multiline comment")
+        fun dontAlignPropValsWhenMultilineComment() {
+            val input = """
                 {
-                    "a"
-                    /*
-                     * multiline
-                     * comment
-                     */
-                    : 1,
-                    "b": 2
+                    "foo": // this is foo
+                        [1, 2, 4],
+                    "bar": null,
+                    "bazzzz": /* this is baz */ [0]
                 }
             """.trimIndent()
-            val options = FracturedJsonOptions(
+
+            val opts = FracturedJsonOptions(
                 commentPolicy = CommentPolicy.Preserve,
-                maxPropNamePadding = 20,
-                maxInlineComplexity = 0,
+                colonBeforePropNamePadding = false,
                 jsonEolStyle = EolStyle.Lf
             )
-            val parser = Parser(options)
-            val items = parser.parse(json)
 
-            val formatter = Formatter(options)
-            val result = formatter.format(items[0])
+            val parser = Parser(opts)
+            val formatter = Formatter(opts)
+            val output = formatter.format(parser.parse(input))
+            val outputLines = output.trimEnd().split('\n')
 
-            // Data should be preserved
-            assertThat(result).contains("\"a\"")
-            assertThat(result).contains("\"b\"")
+            // Since there's a comment with a line break between a prop label and value,
+            // we shouldn't even try to align property values here.
+            assertThat(outputLines.size).isEqualTo(11)
+            assertThat(outputLines[9].indexOf(':')).isNotEqualTo(outputLines[8].indexOf(':'))
         }
 
         @Test
-        fun `data preserved when simple comment present`() {
-            val json = """{"a" /*comment*/: 1, "bb": 2}"""
-            val options = FracturedJsonOptions(
-                commentPolicy = CommentPolicy.Preserve,
-                maxPropNamePadding = 20,
-                maxInlineComplexity = 0,
-                jsonEolStyle = EolStyle.Lf
-            )
-            val parser = Parser(options)
-            val items = parser.parse(json)
-
-            val formatter = Formatter(options)
-            val result = formatter.format(items[0])
-
-            // Data should be preserved
-            assertThat(result).contains("\"a\"")
-            assertThat(result).contains("\"bb\"")
-        }
-    }
-
-    @Nested
-    @DisplayName("Wrapped Arrays")
-    inner class WrappedArrays {
-
-        @Test
-        fun `align prop vals when array wraps`() {
-            val json = """
+        @DisplayName("Align prop vals when simple comment")
+        fun alignPropValsWhenSimpleComment() {
+            val input = """
                 {
-                    "short": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-                    "longPropertyName": 2
+                    "foo": /* this is foo */
+                        [1, 2, 4],
+                    "bar": null,
+                    "bazzzz": /* this is baz */ [0]
                 }
             """.trimIndent()
-            val options = FracturedJsonOptions(
-                maxTotalLineLength = 40,
-                maxInlineComplexity = 0,
+
+            val opts = FracturedJsonOptions(
+                commentPolicy = CommentPolicy.Preserve,
+                colonBeforePropNamePadding = false,
+                maxTotalLineLength = 80,
                 jsonEolStyle = EolStyle.Lf
             )
-            val parser = Parser(options)
-            val items = parser.parse(json)
 
-            val formatter = Formatter(options)
-            val result = formatter.format(items[0])
+            val parser = Parser(opts)
+            val formatter = Formatter(opts)
+            val output = formatter.format(parser.parse(input))
+            val outputLines = output.trimEnd().split('\n').toTypedArray()
 
-            // Both properties should be present
-            assertThat(result).contains("\"short\"")
-            assertThat(result).contains("\"longPropertyName\"")
+            // Since the comments can all be inlined, this should be table-formatted.
+            assertThat(outputLines.size).isEqualTo(5)
+            TestHelpers.testInstancesLineUp(outputLines, "[")
+        }
+
+        @Test
+        @DisplayName("Align prop vals when array wraps")
+        fun alignPropValsWhenArrayWraps() {
+            val input = """
+                {
+                    "foo": /* this is foo */
+                        [1, 2, 4],
+                    "bar": null,
+                    "bazzzz": /* this is baz */ [0]
+                }
+            """.trimIndent()
+
+            val opts = FracturedJsonOptions(
+                commentPolicy = CommentPolicy.Preserve,
+                colonBeforePropNamePadding = false,
+                maxTotalLineLength = 38,
+                jsonEolStyle = EolStyle.Lf
+            )
+
+            val parser = Parser(opts)
+            val formatter = Formatter(opts)
+            val output = formatter.format(parser.parse(input))
+            val outputLines = output.trimEnd().split('\n').toTypedArray()
+
+            // The lines are too short for foo to be inlined, so it's compact multiline.
+            // But there's still enough room for bar if we align the props.
+            assertThat(outputLines.size).isEqualTo(7)
+            TestHelpers.testInstancesLineUp(outputLines, "[")
+            TestHelpers.testInstancesLineUp(outputLines, ":")
         }
     }
 }

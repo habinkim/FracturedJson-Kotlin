@@ -142,24 +142,31 @@ class Formatter(
         val availableLength = options.maxTotalLineLength - pads.indentLen(currentDepth)
 
         // Check if we should always expand at this depth
-        val forceExpand = options.alwaysExpandDepth >= 0 && currentDepth >= options.alwaysExpandDepth
+        // alwaysExpandDepth=0 means expand only depth 0 (root), =1 means expand depths 0 and 1, etc.
+        val forceExpand = options.alwaysExpandDepth >= 0 && currentDepth <= options.alwaysExpandDepth
 
-        // Try inline formatting first
-        if (!forceExpand && !item.requiresMultipleLines && item.minimumTotalLength <= availableLength) {
+        // Try inline formatting first (maxInlineComplexity < 0 means never inline)
+        if (!forceExpand &&
+            options.maxInlineComplexity >= 0 &&
+            item.complexity <= options.maxInlineComplexity &&
+            !item.requiresMultipleLines &&
+            item.minimumTotalLength <= availableLength) {
             if (isRoot) buffer.add(pads.indent(currentDepth))
             formatContainerInline(item, buffer)
             return
         }
 
-        // For arrays, try compact multiline
+        // For arrays, try compact multiline (maxCompactArrayComplexity < 0 means never use)
         if (!forceExpand && item.type == JsonItemType.Array &&
+            options.maxCompactArrayComplexity >= 0 &&
             item.complexity <= options.maxCompactArrayComplexity) {
             val compactResult = tryFormatContainerCompactMultiline(item, buffer, isRoot)
             if (compactResult) return
         }
 
-        // Try table formatting for consistent structures
-        if (!forceExpand && item.complexity <= options.maxTableRowComplexity) {
+        // Try table formatting for consistent structures (maxTableRowComplexity < 0 means never use)
+        // Note: table formatting is allowed even when forceExpand is true, because it expands content across multiple lines
+        if (options.maxTableRowComplexity >= 0 && item.complexity <= options.maxTableRowComplexity) {
             val tableResult = tryFormatContainerTable(item, buffer, isRoot)
             if (tableResult) return
         }
@@ -192,17 +199,27 @@ class Formatter(
         val children = getFormattableChildren(item)
         if (children.size < options.minCompactArrayRowItems) return false
 
-        // Check if all children are simple enough
-        if (children.any { it.type == JsonItemType.Array || it.type == JsonItemType.Object }) {
+        // Check if all children are simple enough for compact formatting
+        // Standalone comments prevent compact formatting
+        if (children.any { it.type == JsonItemType.BlockComment || it.type == JsonItemType.LineComment }) {
+            return false
+        }
+        // Children must be simple enough (complexity check) to fit in compact format
+        if (children.any { it.complexity > options.maxCompactArrayComplexity }) {
             return false
         }
 
-        // Calculate max item length
-        val maxItemLen = children.maxOfOrNull { it.minimumTotalLength } ?: return false
-        val availableWidth = options.maxTotalLineLength - pads.indentLen(currentDepth + 1) -
-                            pads.arrStartLen() - pads.arrEndLen()
+        // Calculate available line space at the content depth (matching C# AvailableLineSpace)
+        val availableLineSpace = options.maxTotalLineLength - pads.indentLen(currentDepth + 1)
 
-        val itemsPerRow = max(1, availableWidth / (maxItemLen + pads.commaLen))
+        // Check using average item width (matching C# logic)
+        val avgItemWidth = pads.commaLen + children.sumOf { it.minimumTotalLength } / children.size
+
+        if (avgItemWidth * options.minCompactArrayRowItems > availableLineSpace) return false
+
+        // Calculate items per row using max item length for actual formatting
+        val maxItemLen = children.maxOfOrNull { it.minimumTotalLength } ?: return false
+        val itemsPerRow = max(1, availableLineSpace / (maxItemLen + pads.commaLen))
         if (itemsPerRow < options.minCompactArrayRowItems) return false
 
         // Format compact multiline
@@ -247,6 +264,27 @@ class Formatter(
     ): Boolean {
         val children = getFormattableChildren(item)
         if (children.isEmpty()) return false
+
+        // Table formatting doesn't work with standalone comments
+        if (children.any { it.type == JsonItemType.BlockComment || it.type == JsonItemType.LineComment }) {
+            return false
+        }
+
+        // Table formatting doesn't work when there's a multiline middle comment
+        // (comment between property name and value that requires a line break)
+        if (children.any { it.middleCommentHasNewline }) {
+            return false
+        }
+
+        // Table row elements must be inlineable - check maxInlineComplexity
+        // If maxInlineComplexity < 0, no inline formatting is allowed at all
+        if (options.maxInlineComplexity < 0) {
+            return false
+        }
+        // Each child must have complexity <= maxInlineComplexity to be inlined in a table row
+        if (children.any { it.complexity > options.maxInlineComplexity }) {
+            return false
+        }
 
         // Create and measure table template
         val template = TableTemplate(pads, options.numberListAlignment)
@@ -309,7 +347,12 @@ class Formatter(
                 }
             }
             JsonItemType.Array, JsonItemType.Object -> {
-                formatContainerInline(item, buffer)
+                // Format container with aligned elements using child templates
+                if (template.children.isNotEmpty()) {
+                    formatTableRowComposite(item, buffer, template)
+                } else {
+                    formatContainerInline(item, buffer)
+                }
                 if (!isLast) buffer.add(pads.comma)
             }
             else -> {
@@ -318,6 +361,68 @@ class Formatter(
                 if (!isLast) buffer.add(pads.comma)
             }
         }
+    }
+
+    /**
+     * Formats a composite (array/object) table row element with aligned children.
+     * Uses child templates to apply padding for proper column alignment.
+     */
+    private fun formatTableRowComposite(
+        item: JsonItem,
+        buffer: FormattingBuffer,
+        template: TableTemplate
+    ) {
+        val paddingType = determinePaddingType(item)
+        buffer.add(pads.start(item.type, paddingType))
+
+        val children = getFormattableChildren(item)
+        for ((index, child) in children.withIndex()) {
+            if (index > 0) {
+                buffer.add(pads.comma)
+            }
+
+            // Output property name if this is an object
+            if (child.name.isNotEmpty()) {
+                buffer.add("\"${child.name}\"")
+                buffer.add(pads.colon)
+            }
+
+            // Find the child template for this position
+            val childLocation = if (item.type == JsonItemType.Object) child.name else index.toString()
+            val childTemplate = template.children.find { it.locationInParent == childLocation }
+
+            if (childTemplate != null) {
+                // Format using the child template for alignment
+                when (child.type) {
+                    JsonItemType.Number -> {
+                        if (childTemplate.type == TableColumnType.Number) {
+                            // Use number formatting with alignment
+                            childTemplate.formatNumber(buffer, child, "")
+                        } else {
+                            buffer.add(child.value)
+                            buffer.spaces(childTemplate.maxValueLength - child.valueLength)
+                        }
+                    }
+                    JsonItemType.Array, JsonItemType.Object -> {
+                        // Recursively format nested composites
+                        if (childTemplate.children.isNotEmpty()) {
+                            formatTableRowComposite(child, buffer, childTemplate)
+                        } else {
+                            formatContainerInline(child, buffer)
+                        }
+                    }
+                    else -> {
+                        buffer.add(child.value)
+                        buffer.spaces(childTemplate.maxValueLength - child.valueLength)
+                    }
+                }
+            } else {
+                // No template - format inline without padding
+                inlineElement(child, buffer, false)
+            }
+        }
+
+        buffer.add(pads.end(item.type, paddingType))
     }
 
     private fun formatContainerExpanded(item: JsonItem, buffer: FormattingBuffer, isRoot: Boolean) {
@@ -335,18 +440,84 @@ class Formatter(
         currentDepth++
 
         // Calculate name padding for objects
-        val namePadding = if (item.type == JsonItemType.Object) {
-            val maxNameLen = children.maxOfOrNull { it.nameLength } ?: 0
-            minOf(maxNameLen, options.maxPropNamePadding)
-        } else 0
+        val namePadding = calculatePropertyNamePadding(children, item.type)
 
         for ((index, child) in children.withIndex()) {
-            formatExpandedChild(child, buffer, namePadding, index == children.size - 1)
+            // isLastValue: true if remaining children (after this one) are all comments/blank lines
+            val isLastValue = isLastValueChild(children, index)
+            formatExpandedChild(child, buffer, namePadding, isLastValue)
         }
 
         currentDepth--
         buffer.add(pads.indent(currentDepth))
         buffer.add(pads.end(item.type))
+    }
+
+    /**
+     * Calculates the property name padding for object children.
+     * Returns 0 (no alignment) if:
+     * - Not an object type
+     * - The difference between max and min name lengths exceeds maxPropNamePadding
+     * - Any child has a multiline middle comment (line break between name and value)
+     * - Alignment would cause any line to exceed maxTotalLineLength
+     */
+    private fun calculatePropertyNamePadding(children: List<JsonItem>, itemType: JsonItemType): Int {
+        if (itemType != JsonItemType.Object) return 0
+
+        // Only consider children with names (actual value children, not comments/blank lines)
+        val valueChildren = children.filter {
+            it.name.isNotEmpty() &&
+            it.type != JsonItemType.BlankLine &&
+            it.type != JsonItemType.LineComment &&
+            it.type != JsonItemType.BlockComment
+        }
+        if (valueChildren.isEmpty()) return 0
+
+        // Check if any child has a multiline comment between name and value
+        if (valueChildren.any { it.middleCommentHasNewline }) return 0
+
+        val maxNameLen = valueChildren.maxOfOrNull { it.nameLength } ?: 0
+        val minNameLen = valueChildren.minOfOrNull { it.nameLength } ?: 0
+        val paddingNeeded = maxNameLen - minNameLen
+
+        // If padding needed exceeds maxPropNamePadding, don't align
+        if (paddingNeeded > options.maxPropNamePadding) return 0
+
+        // Check if any line would exceed maxTotalLineLength with padding
+        val indentLen = pads.indent(currentDepth + 1).length
+        for (child in valueChildren) {
+            // Calculate line length with padded name:
+            // indent + "name" + padding_spaces + colon + middle_comment_with_spacing + value
+            val extraPadding = maxNameLen - child.nameLength
+            val middleCommentWithSpacing = if (child.middleComment.isNotEmpty()) {
+                child.middleCommentLength + pads.commentLen
+            } else 0
+            
+            val paddedLineLen = indentLen +
+                2 + child.nameLength +  // "name" (quotes + name)
+                extraPadding +          // extra spaces for alignment
+                pads.colonLen +         // : (colon with optional spacing)
+                middleCommentWithSpacing +  // middle comment with spacing
+                child.valueLength       // just the value, no name/colon duplication
+            
+            if (paddedLineLen > options.maxTotalLineLength) return 0
+        }
+
+        return maxNameLen
+    }
+
+    /**
+     * Checks if the child at the given index is the last "value" child.
+     * Returns true if all remaining children (after this index) are non-value types (comments, blank lines).
+     */
+    private fun isLastValueChild(children: List<JsonItem>, index: Int): Boolean {
+        if (index >= children.size - 1) return true
+        // Check if all remaining children are non-value types
+        return children.drop(index + 1).all { child ->
+            child.type == JsonItemType.BlankLine ||
+            child.type == JsonItemType.LineComment ||
+            child.type == JsonItemType.BlockComment
+        }
     }
 
     private fun formatExpandedChild(
@@ -369,15 +540,65 @@ class Formatter(
                 }
             }
             JsonItemType.Array, JsonItemType.Object -> {
+                // Output prefix comment on its own line if present
+                if (child.prefixComment.isNotEmpty() && options.commentPolicy == CommentPolicy.Preserve) {
+                    buffer.add(pads.indent(currentDepth))
+                    buffer.add(child.prefixComment)
+                    buffer.endLine(pads.eol)
+                }
                 buffer.add(pads.indent(currentDepth))
                 formatPropertyName(child, buffer, namePadding)
+                // Output middle comment (between property name and value)
+                var valueOnNewLine = false
+                if (child.middleComment.isNotEmpty() && options.commentPolicy == CommentPolicy.Preserve) {
+                    buffer.add(child.middleComment)
+                    if (child.middleCommentHasNewline) {
+                        buffer.endLine(pads.eol)
+                        buffer.add(pads.indent(currentDepth + 1))
+                        valueOnNewLine = true
+                    } else {
+                        buffer.add(pads.comment)
+                    }
+                }
+                // Check if the value would exceed line length when on same line as property name
+                if (!valueOnNewLine && child.name.isNotEmpty()) {
+                    val prefixLen = pads.indentLen(currentDepth) +
+                        1 + child.nameLength + 1 +  // "name"
+                        (if (namePadding > 0) namePadding - child.nameLength else 0) +
+                        pads.colonLen +
+                        child.middleCommentLength +
+                        (if (child.middleComment.isNotEmpty()) pads.commentLen else 0)
+                    val wouldFit = prefixLen + child.minimumTotalLength <= options.maxTotalLineLength
+                    if (!wouldFit && !child.requiresMultipleLines) {
+                        // Value needs to wrap to new line
+                        buffer.endLine(pads.eol)
+                        buffer.add(pads.indent(currentDepth + 1))
+                        valueOnNewLine = true
+                    }
+                }
                 formatContainer(child, buffer, isRoot = false)
                 if (!isLast) buffer.add(pads.comma)
                 buffer.endLine(pads.eol)
             }
             else -> {
+                // Output prefix comment on its own line if present
+                if (child.prefixComment.isNotEmpty() && options.commentPolicy == CommentPolicy.Preserve) {
+                    buffer.add(pads.indent(currentDepth))
+                    buffer.add(child.prefixComment)
+                    buffer.endLine(pads.eol)
+                }
                 buffer.add(pads.indent(currentDepth))
                 formatPropertyName(child, buffer, namePadding)
+                // Output middle comment (between property name and value)
+                if (child.middleComment.isNotEmpty() && options.commentPolicy == CommentPolicy.Preserve) {
+                    buffer.add(child.middleComment)
+                    if (child.middleCommentHasNewline) {
+                        buffer.endLine(pads.eol)
+                        buffer.add(pads.indent(currentDepth + 1))
+                    } else {
+                        buffer.add(pads.comment)
+                    }
+                }
                 buffer.add(child.value)
                 if (!isLast) buffer.add(pads.comma)
                 buffer.endLine(pads.eol)
@@ -522,7 +743,9 @@ class Formatter(
         item.requiresMultipleLines = children.any { it.requiresMultipleLines } ||
             item.complexity > options.maxInlineComplexity ||
             children.any { it.middleCommentHasNewline } ||
-            children.any { it.isPostCommentLineStyle }
+            children.any { it.isPostCommentLineStyle } ||
+            // Standalone comments force multiline
+            children.any { it.type == JsonItemType.BlockComment || it.type == JsonItemType.LineComment }
     }
 
     private fun calculateMinimumLength(item: JsonItem): Int {

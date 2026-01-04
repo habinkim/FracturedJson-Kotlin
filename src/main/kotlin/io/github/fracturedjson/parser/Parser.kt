@@ -370,7 +370,11 @@ class Parser(
 
         val middle = middleComments.joinToString(" ") { it.value }
         item.middleComment = middle
-        item.middleCommentHasNewline = middleComments.any { it.value.contains('\n') }
+        // Line comments always imply a newline (they're terminated by newline)
+        // Block comments may contain newlines within them
+        item.middleCommentHasNewline = middleComments.any {
+            it.type == JsonItemType.LineComment || it.value.contains('\n')
+        }
         middleComments.clear()
     }
 

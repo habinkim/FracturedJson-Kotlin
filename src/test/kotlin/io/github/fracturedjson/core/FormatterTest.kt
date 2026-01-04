@@ -76,7 +76,7 @@ class FormatterTest {
                 JsonItem.numberItem(3)
             ))
             val result = formatter.format(item)
-            assertThat(result).isEqualTo("[ 1, 2, 3 ]")
+            assertThat(result).isEqualTo("[1, 2, 3]")
         }
 
         @Test

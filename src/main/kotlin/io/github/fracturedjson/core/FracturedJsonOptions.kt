@@ -73,9 +73,9 @@ data class FracturedJsonOptions(
 
     /**
      * Whether to add spaces inside brackets of simple structures.
-     * Default is true.
+     * Default is false (matching C# FracturedJson).
      */
-    var simpleBracketPadding: Boolean = true,
+    var simpleBracketPadding: Boolean = false,
 
     /**
      * Whether to add space after colons.
