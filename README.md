@@ -1,6 +1,6 @@
 # FracturedJson-Kotlin
 
-[![Maven Central](https://img.shields.io/maven-central/v/io.github.fracturedjson/fracturedjson-core.svg)](https://central.sonatype.com/artifact/io.github.fracturedjson/fracturedjson-core)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.fracturedjson/fractured-json-kotlin.svg)](https://central.sonatype.com/artifact/io.github.fracturedjson/fractured-json-kotlin)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Kotlin](https://img.shields.io/badge/kotlin-2.0+-blue.svg?logo=kotlin)](http://kotlinlang.org)
 
@@ -18,18 +18,9 @@ A Kotlin port of [FracturedJson](https://github.com/j-brooke/FracturedJson) — 
 
 ### Gradle (Kotlin DSL)
 
-Choose the adapter that matches your project's JSON library:
-
 ```kotlin
 dependencies {
-    // For kotlinx.serialization users
-    implementation("io.github.fracturedjson:fracturedjson-kotlinx:1.0.0")
-
-    // For Jackson users
-    implementation("io.github.fracturedjson:fracturedjson-jackson:1.0.0")
-
-    // For built-in parser (supports comments)
-    implementation("io.github.fracturedjson:fracturedjson-parser:1.0.0")
+    implementation("io.github.fracturedjson:fractured-json-kotlin:1.0.0")
 }
 ```
 
@@ -37,14 +28,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    // For kotlinx.serialization users
-    implementation 'io.github.fracturedjson:fracturedjson-kotlinx:1.0.0'
-
-    // For Jackson users
-    implementation 'io.github.fracturedjson:fracturedjson-jackson:1.0.0'
-
-    // For built-in parser (supports comments)
-    implementation 'io.github.fracturedjson:fracturedjson-parser:1.0.0'
+    implementation 'io.github.fracturedjson:fractured-json-kotlin:1.0.0'
 }
 ```
 
@@ -53,10 +37,12 @@ dependencies {
 ```xml
 <dependency>
     <groupId>io.github.fracturedjson</groupId>
-    <artifactId>fracturedjson-kotlinx</artifactId>
+    <artifactId>fractured-json-kotlin</artifactId>
     <version>1.0.0</version>
 </dependency>
 ```
+
+> **Note**: This library includes support for both Jackson and kotlinx.serialization. All adapters are bundled in a single artifact.
 
 ## Usage
 
@@ -197,15 +183,18 @@ Table-like alignment for arrays of objects:
 | `allowTrailingCommas` | Boolean | false | Permit trailing commas in arrays/objects |
 | `numberListAlignment` | NumberListAlignment | Decimal | Number alignment style (Left, Right, Decimal) |
 
-## Modules
+## Package Structure
 
-| Module | Description | Dependencies |
-|--------|-------------|--------------|
-| `fracturedjson-core` | Core formatting logic | None (pure Kotlin) |
-| `fracturedjson-parser` | Built-in JSON+comments parser | core |
-| `fracturedjson-kotlinx` | kotlinx.serialization adapter | core, kotlinx-serialization-json |
-| `fracturedjson-jackson` | Jackson adapter | core, jackson-databind |
-| `fracturedjson-bom` | Bill of Materials for version management | - |
+The library is organized into the following packages:
+
+| Package | Description |
+|---------|-------------|
+| `io.github.fracturedjson.core` | Core formatting engine and configuration options |
+| `io.github.fracturedjson.core.formatting` | Internal formatting utilities (buffers, templates) |
+| `io.github.fracturedjson.parser` | Built-in JSON parser with comment support |
+| `io.github.fracturedjson.parser.tokenizing` | Tokenizer for JSON parsing |
+| `io.github.fracturedjson.jackson` | Jackson `JsonNode` integration and extensions |
+| `io.github.fracturedjson.kotlinx` | kotlinx.serialization `JsonElement` integration |
 
 ## Related Projects
 
