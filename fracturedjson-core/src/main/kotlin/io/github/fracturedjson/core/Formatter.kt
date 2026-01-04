@@ -286,8 +286,15 @@ class Formatter(
         // Format property name if present
         if (item.name.isNotEmpty()) {
             buffer.add("\"${item.name}\"")
-            buffer.spaces(template.nameLength - item.nameLength)
-            buffer.add(pads.colon)
+            // colonBeforePropNamePadding: if true, colon comes right after name ("name":    value)
+            // if false, padding comes before colon ("name   : value")
+            if (options.colonBeforePropNamePadding) {
+                buffer.add(pads.colon)
+                buffer.spaces(template.nameLength - item.nameLength)
+            } else {
+                buffer.spaces(template.nameLength - item.nameLength)
+                buffer.add(pads.colon)
+            }
         }
 
         // Format value based on type
@@ -383,6 +390,8 @@ class Formatter(
 
         buffer.add("\"${item.name}\"")
 
+        // colonBeforePropNamePadding: if true, colon comes right after name ("name":    value)
+        // if false, padding comes before colon ("name   : value")
         if (options.colonBeforePropNamePadding) {
             buffer.add(pads.colon)
             buffer.spaces(namePadding - item.nameLength)
