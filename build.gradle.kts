@@ -1,76 +1,88 @@
 plugins {
-    kotlin("jvm") version "2.0.21" apply false
-    kotlin("plugin.serialization") version "2.0.21" apply false
+    kotlin("jvm") version "2.0.21"
+    kotlin("plugin.serialization") version "2.0.21"
     `maven-publish`
 }
 
-allprojects {
-    group = "io.github.fracturedjson"
-    version = "1.0.0-SNAPSHOT"
+group = "io.github.fracturedjson"
+version = "1.0.0"
+description = "FracturedJson - Human-readable JSON formatting for Kotlin"
 
-    repositories {
-        mavenCentral()
+repositories {
+    mavenCentral()
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    }
+    withJavadocJar()
+    withSourcesJar()
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+        freeCompilerArgs.addAll(
+            "-Xjsr305=strict",
+            "-opt-in=kotlin.RequiresOptIn"
+        )
     }
 }
 
-subprojects {
-    // BOM 모듈은 java-platform을 사용하므로 제외
-    if (name != "fracturedjson-bom") {
-        apply(plugin = "org.jetbrains.kotlin.jvm")
-        apply(plugin = "maven-publish")
+val jacksonVersion = "2.18.2"
+val coroutinesVersion = "1.9.0"
+val serializationVersion = "1.7.3"
 
-        configure<JavaPluginExtension> {
-            toolchain {
-                languageVersion.set(JavaLanguageVersion.of(21))
-            }
-            withJavadocJar()
-            withSourcesJar()
-        }
+dependencies {
+    // Jackson integration
+    implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:$jacksonVersion")
 
-        tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-            compilerOptions {
-                jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
-                freeCompilerArgs.addAll(
-                    "-Xjsr305=strict",
-                    "-opt-in=kotlin.RequiresOptIn"
-                )
-            }
-        }
+    // kotlinx.serialization integration
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$serializationVersion")
 
-        tasks.withType<Test> {
-            useJUnitPlatform()
-        }
+    // Coroutines for async formatting
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")
 
-        configure<PublishingExtension> {
-            publications {
-                create<MavenPublication>("maven") {
-                    from(components["java"])
+    // Test dependencies
+    testImplementation(kotlin("test"))
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+    testImplementation("org.assertj:assertj-core:3.26.3")
+}
 
-                    pom {
-                        name.set(project.name)
-                        description.set("FracturedJson Kotlin - Human-readable JSON formatting")
-                        url.set("https://github.com/user/fractured-json-kotlin")
+tasks.test {
+    useJUnitPlatform()
+}
 
-                        licenses {
-                            license {
-                                name.set("MIT License")
-                                url.set("https://opensource.org/licenses/MIT")
-                            }
-                        }
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            from(components["java"])
 
-                        developers {
-                            developer {
-                                id.set("developer")
-                                name.set("Developer")
-                            }
-                        }
+            pom {
+                name.set("FracturedJson")
+                description.set("Human-readable JSON formatting for Kotlin with Jackson and kotlinx.serialization support")
+                url.set("https://github.com/habinkim/FracturedJson-Kotlin")
 
-                        scm {
-                            connection.set("scm:git:git://github.com/user/fractured-json-kotlin.git")
-                            developerConnection.set("scm:git:ssh://github.com/user/fractured-json-kotlin.git")
-                            url.set("https://github.com/user/fractured-json-kotlin")
-                        }
+                licenses {
+                    license {
+                        name.set("MIT License")
+                        url.set("https://opensource.org/licenses/MIT")
                     }
+                }
+
+                developers {
+                    developer {
+                        id.set("developer")
+                        name.set("Developer")
+                    }
+                }
+
+                scm {
+                    connection.set("scm:git:git://github.com:habinkim/FracturedJson-Kotlin.git")
+                    developerConnection.set("scm:git:ssh://github.com:habinkim/FracturedJson-Kotlin.git")
+                    url.set("https://github.com/habinkim/FracturedJson-Kotlin")
                 }
             }
         }

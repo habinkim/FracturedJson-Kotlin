@@ -10,9 +10,3 @@ plugins {
 }
 
 rootProject.name = "fractured-json-kotlin"
-
-include(":fracturedjson-core")
-include(":fracturedjson-parser")
-include(":fracturedjson-kotlinx")
-include(":fracturedjson-jackson")
-include(":fracturedjson-bom")

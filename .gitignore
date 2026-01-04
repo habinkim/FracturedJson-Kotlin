@@ -45,6 +45,7 @@ bin/
 .DS_Store
 
 .claude
+.serena
 .idea
 PORTING_PLAN.md
 PROJECT_INDEX.md
