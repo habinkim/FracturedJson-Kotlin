@@ -138,8 +138,12 @@ class Formatter(
         }
     }
 
-    private fun formatContainer(item: JsonItem, buffer: FormattingBuffer, isRoot: Boolean) {
-        val availableLength = options.maxTotalLineLength - pads.indentLen(currentDepth)
+    private fun formatContainer(item: JsonItem, buffer: FormattingBuffer, isRoot: Boolean, valueOnNewLine: Boolean = false) {
+        // When value is on a new line, use one more indent level for available length calculation
+        val effectiveDepth = if (valueOnNewLine) currentDepth + 1 else currentDepth
+        val availableLength = options.maxTotalLineLength - pads.indentLen(effectiveDepth)
+        // When value is on a new line, only the value needs to fit, not the property name/comments
+        val lengthToCheck = if (valueOnNewLine) item.valueLength else item.minimumTotalLength
 
         // Check if we should always expand at this depth
         // alwaysExpandDepth=0 means expand only depth 0 (root), =1 means expand depths 0 and 1, etc.
@@ -150,16 +154,18 @@ class Formatter(
             options.maxInlineComplexity >= 0 &&
             item.complexity <= options.maxInlineComplexity &&
             !item.requiresMultipleLines &&
-            item.minimumTotalLength <= availableLength) {
+            lengthToCheck <= availableLength) {
             if (isRoot) buffer.add(pads.indent(currentDepth))
             formatContainerInline(item, buffer)
             return
         }
 
         // For arrays, try compact multiline (maxCompactArrayComplexity < 0 means never use)
+        // Skip compact multiline if requiresMultipleLines is true (e.g., due to line comments)
         if (!forceExpand && item.type == JsonItemType.Array &&
             options.maxCompactArrayComplexity >= 0 &&
-            item.complexity <= options.maxCompactArrayComplexity) {
+            item.complexity <= options.maxCompactArrayComplexity &&
+            !item.requiresMultipleLines) {
             val compactResult = tryFormatContainerCompactMultiline(item, buffer, isRoot)
             if (compactResult) return
         }
@@ -460,6 +466,7 @@ class Formatter(
      * - The difference between max and min name lengths exceeds maxPropNamePadding
      * - Any child has a multiline middle comment (line break between name and value)
      * - Alignment would cause any line to exceed maxTotalLineLength
+     *   (for simple values, the full line is checked; for containers that can wrap, only atomic part)
      */
     private fun calculatePropertyNamePadding(children: List<JsonItem>, itemType: JsonItemType): Int {
         if (itemType != JsonItemType.Object) return 0
@@ -483,25 +490,33 @@ class Formatter(
         // If padding needed exceeds maxPropNamePadding, don't align
         if (paddingNeeded > options.maxPropNamePadding) return 0
 
-        // Check if any line would exceed maxTotalLineLength with padding
-        val indentLen = pads.indent(currentDepth + 1).length
-        for (child in valueChildren) {
-            // Calculate line length with padded name:
-            // indent + "name" + padding_spaces + colon + middle_comment_with_spacing + value
-            val extraPadding = maxNameLen - child.nameLength
-            val middleCommentWithSpacing = if (child.middleComment.isNotEmpty()) {
-                child.middleCommentLength + pads.commentLen
-            } else 0
-            
-            val paddedLineLen = indentLen +
-                2 + child.nameLength +  // "name" (quotes + name)
-                extraPadding +          // extra spaces for alignment
-                pads.colonLen +         // : (colon with optional spacing)
-                middleCommentWithSpacing +  // middle comment with spacing
-                child.valueLength       // just the value, no name/colon duplication
-            
-            if (paddedLineLen > options.maxTotalLineLength) return 0
-        }
+        // Calculate "AtomicItemSize" - the MAX space needed for ANY aligned row
+        // C# uses: NameLength + ColonLen + MiddleCommentLen + MaxAtomicValueLen + PostfixLen + CommaLen
+        // This represents the worst-case line when all properties are aligned.
+        val maxMiddleCommentLen = valueChildren.maxOfOrNull { it.middleCommentLength } ?: 0
+
+        // For atomic value length, only consider simple types (arrays/objects can wrap)
+        val maxAtomicValueLen = valueChildren
+            .filter { it.type != JsonItemType.Array && it.type != JsonItemType.Object }
+            .maxOfOrNull { it.valueLength } ?: 0
+
+        val maxPostfixLen = valueChildren.maxOfOrNull { it.postfixCommentLength } ?: 0
+
+        // Calculate AtomicItemSize like C# - the space needed for a fully aligned row
+        val atomicItemSize = maxNameLen +
+            pads.colonLen +
+            maxMiddleCommentLen +
+            maxAtomicValueLen +
+            maxPostfixLen +
+            pads.commaLen
+
+        // Calculate available line space (excluding indent)
+        // Note: currentDepth has already been incremented to the children's depth at this point
+        val indentLen = pads.indentLen(currentDepth)
+        val availableSpace = options.maxTotalLineLength - indentLen
+
+        // If AtomicItemSize exceeds available space, give up on ALL alignment
+        if (atomicItemSize > availableSpace) return 0
 
         return maxNameLen
     }
@@ -552,7 +567,9 @@ class Formatter(
                 var valueOnNewLine = false
                 if (child.middleComment.isNotEmpty() && options.commentPolicy == CommentPolicy.Preserve) {
                     buffer.add(child.middleComment)
-                    if (child.middleCommentHasNewline) {
+                    // When property alignment is disabled (namePadding=0) due to middleCommentHasNewline,
+                    // ALL middle comments should put their values on new lines for visual consistency
+                    if (child.middleCommentHasNewline || (namePadding == 0 && child.name.isNotEmpty())) {
                         buffer.endLine(pads.eol)
                         buffer.add(pads.indent(currentDepth + 1))
                         valueOnNewLine = true
@@ -576,7 +593,7 @@ class Formatter(
                         valueOnNewLine = true
                     }
                 }
-                formatContainer(child, buffer, isRoot = false)
+                formatContainer(child, buffer, isRoot = false, valueOnNewLine = valueOnNewLine)
                 if (!isLast) buffer.add(pads.comma)
                 buffer.endLine(pads.eol)
             }
@@ -592,7 +609,9 @@ class Formatter(
                 // Output middle comment (between property name and value)
                 if (child.middleComment.isNotEmpty() && options.commentPolicy == CommentPolicy.Preserve) {
                     buffer.add(child.middleComment)
-                    if (child.middleCommentHasNewline) {
+                    // When property alignment is disabled (namePadding=0) due to middleCommentHasNewline,
+                    // ALL middle comments should put their values on new lines for visual consistency
+                    if (child.middleCommentHasNewline || (namePadding == 0 && child.name.isNotEmpty())) {
                         buffer.endLine(pads.eol)
                         buffer.add(pads.indent(currentDepth + 1))
                     } else {
@@ -746,6 +765,12 @@ class Formatter(
             children.any { it.isPostCommentLineStyle } ||
             // Standalone comments force multiline
             children.any { it.type == JsonItemType.BlockComment || it.type == JsonItemType.LineComment }
+
+        // Line-style middle comments (// comment) force the container to be fully expanded.
+        // This is because line comments inherently end with a newline, making inline formatting
+        // of the value impossible - each element must be on its own line for proper rendering.
+        children.filter { it.isMiddleCommentLineStyle && (it.type == JsonItemType.Array || it.type == JsonItemType.Object) }
+            .forEach { it.requiresMultipleLines = true }
     }
 
     private fun calculateMinimumLength(item: JsonItem): Int {

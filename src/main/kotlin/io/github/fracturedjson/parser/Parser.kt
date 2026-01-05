@@ -194,7 +194,7 @@ class Parser(
                             child.name = currentPropName
                             child.inputPosition = currentPropPosition
                             attachPrefixComments(child, unplacedComments)
-                            attachMiddleComments(child, middleComments)
+                            attachMiddleComments(child, middleComments, token.inputPosition.row)
                             children.add(child)
                             maxComplexity = max(maxComplexity, child.complexity)
                             phase = ObjectPhase.AfterPropValue
@@ -229,7 +229,7 @@ class Parser(
                     child.name = currentPropName
                     child.inputPosition = currentPropPosition
                     attachPrefixComments(child, unplacedComments)
-                    attachMiddleComments(child, middleComments)
+                    attachMiddleComments(child, middleComments, token.inputPosition.row)
                     children.add(child)
                     maxComplexity = max(maxComplexity, child.complexity)
                     phase = ObjectPhase.AfterPropValue
@@ -365,13 +365,18 @@ class Parser(
         unplacedComments.clear()
     }
 
-    private fun attachMiddleComments(item: JsonItem, middleComments: MutableList<JsonItem>) {
+    private fun attachMiddleComments(item: JsonItem, middleComments: MutableList<JsonItem>, valueRow: Int = -1) {
         if (middleComments.isEmpty()) return
 
         val middle = middleComments.joinToString(" ") { it.value }
         item.middleComment = middle
-        // Line comments always imply a newline (they're terminated by newline)
-        // Block comments may contain newlines within them
+        // Track if any middle comment is a line comment (which forces full expansion)
+        item.isMiddleCommentLineStyle = middleComments.any { it.type == JsonItemType.LineComment }
+        // middleCommentHasNewline is true when:
+        // 1. Any middle comment is a line comment (// style - always ends with newline)
+        // 2. Any block comment contains newlines within it (/* ... \n ... */)
+        // Note: Newlines AFTER block comments in the input are handled by the formatter,
+        // not by this flag. This flag controls table formatting eligibility.
         item.middleCommentHasNewline = middleComments.any {
             it.type == JsonItemType.LineComment || it.value.contains('\n')
         }

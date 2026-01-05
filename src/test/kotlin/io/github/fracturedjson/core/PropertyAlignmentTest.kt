@@ -120,11 +120,14 @@ class PropertyAlignmentTest {
         @Test
         @DisplayName("Don't align when simple value too long")
         fun dontAlignWhenSimpleValueTooLong() {
+            // Note: Uses block comment (/* this is foo */) like the C# original.
+            // Block comments allow alignment attempts, but maxTotalLineLength=36 is too short.
             val input = """
                 {
-                    "foo": [1, 2, 4],
+                    "foo": /* this is foo */
+                        [1, 2, 4],
                     "bar": null,
-                    "bazzzz": [0]
+                    "bazzzz": /* this is baz */ [0]
                 }
             """.trimIndent()
 
@@ -142,8 +145,9 @@ class PropertyAlignmentTest {
 
             // If we tried to align the properties here, bar's null would exceed the line length
             // due to the padding. FJ should give up on aligning properties in that case.
+            assertThat(outputLines.size).isEqualTo(7)
             assertThat(output).contains("\"bar\":")
-            assertThat(outputLines[1].indexOf(':')).isNotEqualTo(outputLines[outputLines.size - 2].indexOf(':'))
+            assertThat(outputLines[1].indexOf(':')).isNotEqualTo(outputLines[5].indexOf(':'))
         }
     }
 

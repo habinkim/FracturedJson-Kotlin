@@ -52,6 +52,12 @@ class JsonItem(
     var middleCommentHasNewline: Boolean = false
 
     /**
+     * Whether the middle comment is a line-style comment (// style).
+     * Line comments force all child containers to be fully expanded.
+     */
+    var isMiddleCommentLineStyle: Boolean = false
+
+    /**
      * Comment that appears after this item on the same line.
      */
     var postfixComment: String = ""
