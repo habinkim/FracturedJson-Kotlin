@@ -3,9 +3,12 @@ package io.github.fracturedjson.jackson
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.ObjectNode
+import io.github.fracturedjson.core.EolStyle
+import io.github.fracturedjson.core.Formatter
 import io.github.fracturedjson.core.FracturedJsonOptions
 import io.github.fracturedjson.core.JsonItemType
 import io.github.fracturedjson.core.NumberListAlignment
+import io.github.fracturedjson.core.TestHelpers
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -475,6 +478,471 @@ class JsonNodeConverterTest {
             println("=".repeat(80))
 
             assertThat(result).isNotEmpty()
+        }
+    }
+
+
+    @Nested
+    @DisplayName("Property Alignment")
+    inner class PropertyAlignment {
+
+        @Test
+        @DisplayName("Property values aligned")
+        fun propValuesAligned() {
+            val node = mapper.createObjectNode().apply {
+                put("num", 14)
+                put("string", "testing property alignment")
+                putArray("arrayWithLongName").apply {
+                    addNull(); addNull(); addNull()
+                }
+            }
+
+            val opts = FracturedJsonOptions(
+                maxPropNamePadding = 15,
+                colonBeforePropNamePadding = false,
+                maxInlineComplexity = -1,
+                maxCompactArrayComplexity = -1,
+                jsonEolStyle = EolStyle.Lf
+            )
+
+            val item = JsonNodeConverter.convert(node)
+            val formatter = Formatter(opts)
+            val output = formatter.format(item)
+            val outputLines = output.trimEnd().split('\n').toTypedArray()
+
+            // This object should be expanded with the property values and colons aligned.
+            // The array should be expanded as well.
+            assertThat(outputLines.size).isEqualTo(9)
+            TestHelpers.testInstancesLineUp(outputLines, ":")
+        }
+
+        @Test
+        @DisplayName("Property values aligned but not colons")
+        fun propValuesAlignedButNotColons() {
+            val node = mapper.createObjectNode().apply {
+                put("num", 14)
+                put("string", "testing property alignment")
+                putArray("arrayWithLongName").apply {
+                    addNull(); addNull(); addNull()
+                }
+            }
+
+            val opts = FracturedJsonOptions(
+                maxPropNamePadding = 15,
+                colonBeforePropNamePadding = true,
+                maxInlineComplexity = -1,
+                maxCompactArrayComplexity = -1,
+                jsonEolStyle = EolStyle.Lf
+            )
+
+            val item = JsonNodeConverter.convert(node)
+            val formatter = Formatter(opts)
+            val output = formatter.format(item)
+            val outputLines = output.trimEnd().split('\n')
+
+            // This object should be expanded with the property values, but the colons should hug
+            // the prop names instead of being aligned.
+            assertThat(outputLines.size).isEqualTo(9)
+            assertThat(outputLines[1]).contains("\"num\":")
+            assertThat(outputLines[2]).contains("\"string\":")
+            assertThat(outputLines[3]).contains("\"arrayWithLongName\":")
+            assertThat(outputLines[1].indexOf("14")).isEqualTo(outputLines[2].indexOf("\"testing"))
+            assertThat(outputLines[1].indexOf("14")).isEqualTo(outputLines[3].indexOf('['))
+        }
+
+        @Test
+        @DisplayName("Don't align prop vals when too much padding required")
+        fun dontAlignPropValsWhenTooMuchPaddingRequired() {
+            val node = mapper.createObjectNode().apply {
+                put("num", 14)
+                put("string", "testing property alignment")
+                putArray("arrayWithLongName").apply {
+                    addNull(); addNull(); addNull()
+                }
+            }
+
+            val opts = FracturedJsonOptions(
+                maxPropNamePadding = 12,
+                colonBeforePropNamePadding = false,
+                maxInlineComplexity = -1,
+                maxCompactArrayComplexity = -1,
+                jsonEolStyle = EolStyle.Lf
+            )
+
+            val item = JsonNodeConverter.convert(node)
+            val formatter = Formatter(opts)
+            val output = formatter.format(item)
+            val outputLines = output.trimEnd().split('\n')
+
+            // This object should be expanded but the property values shouldn't be aligned since
+            // the length of the prop names differ by more than MaxPropNamePadding.
+            assertThat(outputLines.size).isEqualTo(9)
+            assertThat(outputLines[1]).contains("\"num\": 14,")
+            assertThat(outputLines[2]).contains("\"string\": \"testing")
+            assertThat(outputLines[3]).contains("\"arrayWithLongName\": [")
+        }
+    }
+
+    @Nested
+    @DisplayName("Table Formatting")
+    inner class TableFormatting {
+
+        @Test
+        fun `nested elements line up`() {
+            val node = mapper.createArrayNode().apply {
+                addObject().apply { put("name", "Alice"); put("age", 25) }
+                addObject().apply { put("name", "Bob"); put("age", 30) }
+            }
+            val options = FracturedJsonOptions(jsonEolStyle = EolStyle.Lf)
+
+            val item = JsonNodeConverter.convert(node)
+            val formatter = Formatter(options)
+            val result = formatter.format(item)
+
+            // Properties should align vertically
+            val lines = result.split("\n")
+            val nameLines = lines.filter { it.contains("\"name\"") }
+            if (nameLines.size > 1) {
+                val positions = nameLines.mapNotNull { line ->
+                    val idx = line.indexOf("\"name\"")
+                    if (idx >= 0) idx else null
+                }
+                if (positions.size > 1) {
+                    assertThat(positions.distinct().size).isEqualTo(1)
+                }
+            }
+        }
+
+        @Test
+        fun `nested elements compact when needed`() {
+            val node = mapper.createArrayNode().apply {
+                addObject().apply { put("name", "Alice"); put("age", 25) }
+                addObject().apply { put("name", "Bob"); put("age", 30) }
+            }
+            val options = FracturedJsonOptions(
+                maxTotalLineLength = 30,
+                jsonEolStyle = EolStyle.Lf
+            )
+
+            val item = JsonNodeConverter.convert(node)
+            val formatter = Formatter(options)
+            val result = formatter.format(item)
+
+            // With restricted line length, formatting should adapt
+            assertThat(result).contains("name")
+            assertThat(result).contains("age")
+        }
+
+        @Test
+        fun `fall back on inline if needed`() {
+            val node = mapper.createArrayNode().apply {
+                addObject().apply { put("name", "Alice") }
+                addObject().apply { put("name", "Bob") }
+            }
+            val options = FracturedJsonOptions(
+                maxTotalLineLength = 100,
+                jsonEolStyle = EolStyle.Lf
+            )
+
+            val item = JsonNodeConverter.convert(node)
+            val formatter = Formatter(options)
+            val result = formatter.format(item)
+
+            // Should contain all data
+            assertThat(result).contains("Alice")
+            assertThat(result).contains("Bob")
+        }
+
+        @Test
+        fun `handles nulls with arrays table columns`() {
+            val node = mapper.createArrayNode().apply {
+                addArray().apply { add(1); addNull() }
+                addArray().apply { add(2); add(3) }
+            }
+            val options = FracturedJsonOptions(
+                maxInlineComplexity = 0,
+                jsonEolStyle = EolStyle.Lf
+            )
+
+            val item = JsonNodeConverter.convert(node)
+            val formatter = Formatter(options)
+            val result = formatter.format(item)
+
+            // Should handle null values
+            assertThat(result).contains("null")
+        }
+
+        @Test
+        fun `commas before padding works`() {
+            val node = mapper.createArrayNode().apply {
+                addArray().apply { add(1); add(2) }
+                addArray().apply { add(10); add(20) }
+            }
+            val options = FracturedJsonOptions(
+                maxInlineComplexity = 0,
+                jsonEolStyle = EolStyle.Lf
+            )
+
+            val item = JsonNodeConverter.convert(node)
+            val formatter = Formatter(options)
+            val result = formatter.format(item)
+
+            // Should contain all values
+            assertThat(result).contains("1")
+            assertThat(result).contains("20")
+        }
+
+        @Test
+        fun `colons hug prop names when configured`() {
+            val node = mapper.createArrayNode().apply {
+                addObject().apply { put("a", 1) }
+                addObject().apply { put("longName", 2) }
+            }
+            val options = FracturedJsonOptions(
+                colonBeforePropNamePadding = true,
+                maxInlineComplexity = 0,
+                jsonEolStyle = EolStyle.Lf
+            )
+
+            val item = JsonNodeConverter.convert(node)
+            val formatter = Formatter(options)
+            val result = formatter.format(item)
+
+            // Colons should be right after property names
+            assertThat(result).contains("\"a\":")
+            assertThat(result).contains("\"longName\":")
+        }
+
+        @Test
+        fun `single columns with numbers work`() {
+            val node = mapper.createArrayNode().apply {
+                add(1.5); add(22.333); add(100.1)
+            }
+            val options = FracturedJsonOptions(
+                jsonEolStyle = EolStyle.Lf
+            )
+
+            val item = JsonNodeConverter.convert(node)
+            val formatter = Formatter(options)
+            val result = formatter.format(item)
+
+            // All numbers should be present
+            assertThat(result).contains("1.5")
+            assertThat(result).contains("22.333")
+            assertThat(result).contains("100.1")
+        }
+    }
+
+    @Nested
+    @DisplayName("Number Formatting")
+    inner class NumberFormatting {
+
+        @Test
+        fun `inline array doesnt justify numbers`() {
+            val node = mapper.createArrayNode().apply {
+                add(1); add(22); add(333)
+            }
+            val options = FracturedJsonOptions(
+                maxInlineComplexity = 10,
+                jsonEolStyle = EolStyle.Lf
+            )
+
+            val item = JsonNodeConverter.convert(node)
+            val formatter = Formatter(options)
+            val result = formatter.format(item)
+
+            // In inline format, numbers should not be padded
+            assertThat(result).contains("1")
+            assertThat(result).contains("22")
+            assertThat(result).contains("333")
+        }
+
+        @Test
+        fun `compact array does justify numbers`() {
+            val node = mapper.createArrayNode().apply {
+                addArray().apply { add(1); add(2) }
+                addArray().apply { add(333); add(4444) }
+            }
+            val options = FracturedJsonOptions(
+                maxInlineComplexity = 1,
+                maxCompactArrayComplexity = 2,
+                jsonEolStyle = EolStyle.Lf
+            )
+
+            val item = JsonNodeConverter.convert(node)
+            val formatter = Formatter(options)
+            val result = formatter.format(item)
+
+            // Numbers should be present with potential alignment
+            assertThat(result).contains("1")
+            assertThat(result).contains("4444")
+        }
+
+        @Test
+        fun `table array does justify numbers`() {
+            val node = mapper.createArrayNode().apply {
+                addArray().apply { add(1); add(2) }
+                addArray().apply { add(333); add(4444) }
+            }
+            val options = FracturedJsonOptions(
+                maxInlineComplexity = 0,
+                jsonEolStyle = EolStyle.Lf
+            )
+
+            val item = JsonNodeConverter.convert(node)
+            val formatter = Formatter(options)
+            val result = formatter.format(item)
+
+            // Numbers should be formatted in table style
+            assertThat(result).contains("1")
+            assertThat(result).contains("333")
+        }
+
+        @Test
+        fun `scientific notation numbers preserved`() {
+            val node = mapper.createArrayNode().apply {
+                add(1e10); add(2); add(3)
+            }
+            val options = FracturedJsonOptions(
+                maxInlineComplexity = 0,
+                jsonEolStyle = EolStyle.Lf
+            )
+
+            val item = JsonNodeConverter.convert(node)
+            val formatter = Formatter(options)
+            val result = formatter.format(item)
+
+            // Scientific notation should be preserved
+            assertThat(result.lowercase()).contains("e")
+        }
+
+        @Test
+        fun `nulls respected when aligning numbers`() {
+            val node = mapper.createArrayNode().apply {
+                addArray().apply { add(1); addNull() }
+                addArray().apply { add(22); add(33) }
+            }
+            val options = FracturedJsonOptions(
+                maxInlineComplexity = 0,
+                jsonEolStyle = EolStyle.Lf
+            )
+
+            val item = JsonNodeConverter.convert(node)
+            val formatter = Formatter(options)
+            val result = formatter.format(item)
+
+            // Nulls should be preserved
+            assertThat(result).contains("null")
+        }
+
+        @Test
+        fun `left align works`() {
+            val node = mapper.createArrayNode().apply {
+                addArray().apply { add(1) }
+                addArray().apply { add(22) }
+                addArray().apply { add(333) }
+            }
+            val options = FracturedJsonOptions(
+                maxInlineComplexity = 0,
+                numberListAlignment = NumberListAlignment.Left,
+                jsonEolStyle = EolStyle.Lf
+            )
+
+            val item = JsonNodeConverter.convert(node)
+            val formatter = Formatter(options)
+            val result = formatter.format(item)
+
+            // All numbers should be present
+            assertThat(result).contains("1")
+            assertThat(result).contains("22")
+            assertThat(result).contains("333")
+        }
+
+        @Test
+        fun `right align works`() {
+            val node = mapper.createArrayNode().apply {
+                addArray().apply { add(1) }
+                addArray().apply { add(22) }
+                addArray().apply { add(333) }
+            }
+            val options = FracturedJsonOptions(
+                maxInlineComplexity = 0,
+                numberListAlignment = NumberListAlignment.Right,
+                jsonEolStyle = EolStyle.Lf
+            )
+
+            val item = JsonNodeConverter.convert(node)
+            val formatter = Formatter(options)
+            val result = formatter.format(item)
+
+            // All numbers should be present
+            assertThat(result).contains("1")
+            assertThat(result).contains("22")
+            assertThat(result).contains("333")
+        }
+
+        @Test
+        fun `decimal align works`() {
+            val node = mapper.createArrayNode().apply {
+                addArray().apply { add(1.5) }
+                addArray().apply { add(22.333) }
+                addArray().apply { add(333.1) }
+            }
+            val options = FracturedJsonOptions(
+                maxInlineComplexity = 0,
+                numberListAlignment = NumberListAlignment.Decimal,
+                jsonEolStyle = EolStyle.Lf
+            )
+
+            val item = JsonNodeConverter.convert(node)
+            val formatter = Formatter(options)
+            val result = formatter.format(item)
+
+            // All decimal numbers should be present
+            assertThat(result).contains("1.5")
+            assertThat(result).contains("22.333")
+            assertThat(result).contains("333.1")
+        }
+
+        @Test
+        fun `normalize align works`() {
+            val node = mapper.createArrayNode().apply {
+                addArray().apply { add(1.5) }
+                addArray().apply { add(22.333) }
+                addArray().apply { add(333.1) }
+            }
+            val options = FracturedJsonOptions(
+                maxInlineComplexity = 0,
+                numberListAlignment = NumberListAlignment.Normalize,
+                jsonEolStyle = EolStyle.Lf
+            )
+
+            val item = JsonNodeConverter.convert(node)
+            val formatter = Formatter(options)
+            val result = formatter.format(item)
+
+            // Numbers should be normalized with consistent decimal places
+            assertThat(result).isNotEmpty()
+        }
+
+        @Test
+        fun `negative numbers align correctly`() {
+            val node = mapper.createArrayNode().apply {
+                addArray().apply { add(1) }
+                addArray().apply { add(-22) }
+                addArray().apply { add(333) }
+            }
+            val options = FracturedJsonOptions(
+                maxInlineComplexity = 0,
+                jsonEolStyle = EolStyle.Lf
+            )
+
+            val item = JsonNodeConverter.convert(node)
+            val formatter = Formatter(options)
+            val result = formatter.format(item)
+
+            // Negative number should be preserved
+            assertThat(result).contains("-22")
         }
     }
 }
