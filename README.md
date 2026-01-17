@@ -1,6 +1,6 @@
 # FracturedJson-Kotlin
 
-[![Maven Central](https://img.shields.io/maven-central/v/io.github.fracturedjson/fractured-json-kotlin.svg)](https://central.sonatype.com/artifact/io.github.fracturedjson/fractured-json-kotlin)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.habinkim/fractured-json-kotlin.svg)](https://central.sonatype.com/artifact/io.github.habinkim/fractured-json-kotlin)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Kotlin](https://img.shields.io/badge/kotlin-2.0+-blue.svg?logo=kotlin)](http://kotlinlang.org)
 
@@ -20,7 +20,7 @@ A Kotlin port of [FracturedJson](https://github.com/j-brooke/FracturedJson) — 
 
 ```kotlin
 dependencies {
-    implementation("io.github.fracturedjson:fractured-json-kotlin:1.0.0")
+    implementation("io.github.habinkim:fractured-json-kotlin:0.5.0")
 }
 ```
 
@@ -28,7 +28,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    implementation 'io.github.fracturedjson:fractured-json-kotlin:1.0.0'
+    implementation 'io.github.habinkim:fractured-json-kotlin:0.5.0'
 }
 ```
 
@@ -36,9 +36,9 @@ dependencies {
 
 ```xml
 <dependency>
-    <groupId>io.github.fracturedjson</groupId>
+    <groupId>io.github.habinkim</groupId>
     <artifactId>fractured-json-kotlin</artifactId>
-    <version>1.0.0</version>
+    <version>0.5.0</version>
 </dependency>
 ```
 
@@ -49,9 +49,9 @@ dependencies {
 ### With kotlinx.serialization
 
 ```kotlin
-import io.github.fracturedjson.kotlinx.reformatJson
-import io.github.fracturedjson.kotlinx.toFracturedJson
-import io.github.fracturedjson.core.FracturedJsonOptions
+import io.github.habinkim.kotlinx.reformatJson
+import io.github.habinkim.kotlinx.toFracturedJson
+import io.github.habinkim.core.FracturedJsonOptions
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 
@@ -75,9 +75,9 @@ val customFormatted = input.reformatJson(options)
 ### With Jackson
 
 ```kotlin
-import io.github.fracturedjson.jackson.toFracturedJson
-import io.github.fracturedjson.jackson.formatJson
-import io.github.fracturedjson.core.FracturedJsonOptions
+import io.github.habinkim.jackson.toFracturedJson
+import io.github.habinkim.jackson.formatJson
+import io.github.habinkim.core.FracturedJsonOptions
 import com.fasterxml.jackson.databind.ObjectMapper
 
 val mapper = ObjectMapper()
@@ -94,10 +94,10 @@ val output = mapper.formatJson(input)
 ### With Built-in Parser (Comment Support)
 
 ```kotlin
-import io.github.fracturedjson.parser.Parser
-import io.github.fracturedjson.core.Formatter
-import io.github.fracturedjson.core.FracturedJsonOptions
-import io.github.fracturedjson.core.CommentPolicy
+import io.github.habinkim.parser.Parser
+import io.github.habinkim.core.Formatter
+import io.github.habinkim.core.FracturedJsonOptions
+import io.github.habinkim.core.CommentPolicy
 
 val input = """
 {
@@ -123,7 +123,7 @@ println(formatted)
 ### Minify JSON
 
 ```kotlin
-import io.github.fracturedjson.kotlinx.minifyJson
+import io.github.habinkim.kotlinx.minifyJson
 
 val input = """
 {
@@ -189,12 +189,12 @@ The library is organized into the following packages:
 
 | Package | Description |
 |---------|-------------|
-| `io.github.fracturedjson.core` | Core formatting engine and configuration options |
-| `io.github.fracturedjson.core.formatting` | Internal formatting utilities (buffers, templates) |
-| `io.github.fracturedjson.parser` | Built-in JSON parser with comment support |
-| `io.github.fracturedjson.parser.tokenizing` | Tokenizer for JSON parsing |
-| `io.github.fracturedjson.jackson` | Jackson `JsonNode` integration and extensions |
-| `io.github.fracturedjson.kotlinx` | kotlinx.serialization `JsonElement` integration |
+| `io.github.habinkim.core` | Core formatting engine and configuration options |
+| `io.github.habinkim.core.formatting` | Internal formatting utilities (buffers, templates) |
+| `io.github.habinkim.parser` | Built-in JSON parser with comment support |
+| `io.github.habinkim.parser.tokenizing` | Tokenizer for JSON parsing |
+| `io.github.habinkim.jackson` | Jackson `JsonNode` integration and extensions |
+| `io.github.habinkim.kotlinx` | kotlinx.serialization `JsonElement` integration |
 
 ## Related Projects
 
