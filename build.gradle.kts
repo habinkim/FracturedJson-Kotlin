@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "io.github.habinkim"
-version = "0.5.7"
+version = "0.6.0"
 description = "FracturedJson - Human-readable JSON formatting for Kotlin"
 
 repositories {
@@ -36,6 +36,7 @@ kotlin {
 
 val jacksonVersion = "2.18.2"
 val gsonVersion = "2.11.0"
+val fastjson2Version = "2.0.54"
 val coroutinesVersion = "1.9.0"
 val serializationVersion = "1.7.3"
 
@@ -49,6 +50,9 @@ dependencies {
 
     // Gson integration
     implementation("com.google.code.gson:gson:$gsonVersion")
+
+    // Fastjson2 integration
+    implementation("com.alibaba.fastjson2:fastjson2-kotlin:$fastjson2Version")
 
     // Coroutines for async formatting
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")
