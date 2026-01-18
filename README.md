@@ -20,7 +20,7 @@ A Kotlin port of [FracturedJson](https://github.com/j-brooke/FracturedJson) — 
 
 ```kotlin
 dependencies {
-    implementation("io.github.habinkim:fractured-json-kotlin:0.5.7")
+    implementation("io.github.habinkim:fractured-json-kotlin:0.7.0")
 }
 ```
 
@@ -28,7 +28,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    implementation 'io.github.habinkim:fractured-json-kotlin:0.5.7'
+    implementation 'io.github.habinkim:fractured-json-kotlin:0.7.0'
 }
 ```
 
@@ -38,7 +38,7 @@ dependencies {
 <dependency>
     <groupId>io.github.habinkim</groupId>
     <artifactId>fractured-json-kotlin</artifactId>
-    <version>0.5.7</version>
+    <version>0.7.0</version>
 </dependency>
 ```
 
@@ -162,6 +162,35 @@ val input = """
 """
 val minified = input.minifyJson()
 // Output: {"name":"Alice","age":30}
+```
+
+### Java Usage
+
+The library provides Java-friendly `*Support` classes with static methods:
+
+```java
+import io.github.fracturedjson.jackson.JacksonSupport;
+import io.github.fracturedjson.gson.GsonSupport;
+import io.github.fracturedjson.kotlinx.KotlinxSupport;
+import io.github.fracturedjson.fastjson2.Fastjson2Support;
+import io.github.fracturedjson.core.FracturedJsonOptions;
+
+// Jackson
+ObjectMapper mapper = new ObjectMapper();
+JsonNode node = mapper.readTree("{\"name\":\"Alice\"}");
+String formatted = JacksonSupport.format(node);
+String formatted = JacksonSupport.format(node, options);
+
+// Gson
+JsonElement element = JsonParser.parseString("{\"name\":\"Alice\"}");
+String formatted = GsonSupport.format(element);
+
+// Kotlinx
+String formatted = KotlinxSupport.formatJson("{\"name\":\"Alice\"}");
+
+// Fastjson2
+JSONObject obj = JSON.parseObject("{\"name\":\"Alice\"}");
+String formatted = Fastjson2Support.format(obj);
 ```
 
 ## Example Output
