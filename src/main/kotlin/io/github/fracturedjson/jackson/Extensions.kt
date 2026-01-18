@@ -1,3 +1,4 @@
+@file:JvmName("JacksonExtensions")
 package io.github.fracturedjson.jackson
 
 import com.fasterxml.jackson.databind.JsonNode

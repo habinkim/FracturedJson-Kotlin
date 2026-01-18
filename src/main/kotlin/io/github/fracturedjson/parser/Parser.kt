@@ -20,7 +20,7 @@ import kotlin.math.max
  *
  * @property options Configuration options for parsing behavior
  */
-class Parser(
+class Parser @JvmOverloads constructor(
     var options: FracturedJsonOptions = FracturedJsonOptions()
 ) {
     /**

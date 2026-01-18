@@ -1,3 +1,4 @@
+@file:JvmName("KotlinxExtensions")
 package io.github.fracturedjson.kotlinx
 
 import io.github.fracturedjson.core.Formatter

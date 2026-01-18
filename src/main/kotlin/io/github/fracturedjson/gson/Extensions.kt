@@ -1,3 +1,4 @@
+@file:JvmName("GsonExtensions")
 package io.github.fracturedjson.gson
 
 import com.google.gson.Gson

@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "io.github.habinkim"
-version = "0.6.0"
+version = "0.7.0"
 description = "FracturedJson - Human-readable JSON formatting for Kotlin"
 
 repositories {
@@ -184,10 +184,67 @@ tasks.jacocoTestCoverageVerification {
     )
 }
 
+// Cross-language test synchronization verification
+tasks.register("verifyTestSync") {
+    group = "verification"
+    description = "Verifies that Java and Kotlin tests are synchronized"
+
+    doLast {
+        val kotlinTestDir = file("src/test/kotlin/io/github/fracturedjson")
+        val javaTestDir = file("src/test/java/io/github/fracturedjson")
+
+        // Define which test classes should be mirrored (Kotlin -> Java with 'JavaTest' suffix)
+        val mirroredTests = mapOf(
+            "core/FormatterTest" to "core/FormatterJavaTest",
+            "parser/ParserTest" to "parser/ParserJavaTest",
+            "jackson/JsonNodeConverterTest" to "jackson/JsonNodeConverterJavaTest",
+            "gson/GsonElementConverterTest" to "gson/GsonElementConverterJavaTest"
+        )
+
+        println("")
+        println("┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
+        println("┃  CROSS-LANGUAGE TEST SYNCHRONIZATION CHECK                                  ┃")
+        println("┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫")
+
+        var allSynced = true
+        mirroredTests.forEach { (kotlinPath, javaPath) ->
+            val kotlinFile = file("$kotlinTestDir/$kotlinPath.kt")
+            val javaFile = file("$javaTestDir/$javaPath.java")
+
+            val kotlinExists = kotlinFile.exists()
+            val javaExists = javaFile.exists()
+
+            val status = when {
+                kotlinExists && javaExists -> "✓ SYNCED"
+                kotlinExists && !javaExists -> { allSynced = false; "✗ MISSING JAVA" }
+                !kotlinExists && javaExists -> { allSynced = false; "✗ MISSING KOTLIN" }
+                else -> { allSynced = false; "✗ BOTH MISSING" }
+            }
+
+            val displayName = kotlinPath.padEnd(45)
+            println("┃  $status  $displayName".padEnd(78) + "┃")
+        }
+
+        println("┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫")
+
+        if (allSynced) {
+            println("┃  STATUS: ALL TESTS SYNCHRONIZED                                            ┃")
+        } else {
+            println("┃  STATUS: SYNCHRONIZATION ISSUES DETECTED                                   ┃")
+        }
+        println("┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛")
+
+        if (!allSynced) {
+            throw GradleException("Java and Kotlin tests are not synchronized!")
+        }
+    }
+}
+
 tasks.register("testWithCoverage") {
     group = "verification"
     description = "Runs tests with JaCoCo coverage report and verification"
 
+    dependsOn("verifyTestSync")
     dependsOn(tasks.test)
     dependsOn(tasks.jacocoTestReport)
     dependsOn(tasks.jacocoTestCoverageVerification)

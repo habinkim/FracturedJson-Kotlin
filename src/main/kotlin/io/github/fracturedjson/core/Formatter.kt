@@ -17,7 +17,7 @@ import kotlin.math.max
  * @property options Configuration options for formatting behavior
  * @property stringLengthFunc Function to calculate display length of strings (for Unicode support)
  */
-class Formatter(
+class Formatter @JvmOverloads constructor(
     var options: FracturedJsonOptions = FracturedJsonOptions(),
     var stringLengthFunc: (String) -> Int = ::stringLengthByCharCount
 ) {

@@ -1,3 +1,4 @@
+@file:JvmName("Fastjson2Extensions")
 package io.github.fracturedjson.fastjson2
 
 import com.alibaba.fastjson2.JSON

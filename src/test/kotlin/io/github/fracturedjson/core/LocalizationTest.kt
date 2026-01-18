@@ -36,7 +36,7 @@ class LocalizationTest {
             val outputUs = formatter1.format(parser1.parse(input))
 
             // Test with Norwegian locale (uses comma as decimal separator)
-            Locale.setDefault(Locale("nb", "NO"))
+            Locale.setDefault(Locale.of("nb", "NO"))
             val parser2 = Parser(opts)
             val formatter2 = Formatter(opts)
             val outputNbNo = formatter2.format(parser2.parse(input))
