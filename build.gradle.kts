@@ -5,10 +5,11 @@ plugins {
     kotlin("plugin.serialization") version "2.0.21"
     `maven-publish`
     signing
+    jacoco
 }
 
 group = "io.github.habinkim"
-version = "0.5.5"
+version = "0.5.7"
 description = "FracturedJson - Human-readable JSON formatting for Kotlin"
 
 repositories {
@@ -60,6 +61,206 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+    finalizedBy(tasks.jacocoTestReport)
+
+    testLogging {
+        events("failed", "skipped")
+        showExceptions = true
+        showCauses = true
+        showStackTraces = true
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
+
+    // Collect results per test class
+    val testClassResults = mutableMapOf<String, Triple<Long, Long, Long>>() // passed, failed, skipped
+
+    afterTest(KotlinClosure2<TestDescriptor, TestResult, Unit>({ desc, result ->
+        val className = desc.className?.substringAfterLast('.') ?: return@KotlinClosure2
+        val current = testClassResults.getOrDefault(className, Triple(0L, 0L, 0L))
+        testClassResults[className] = when (result.resultType) {
+            TestResult.ResultType.SUCCESS -> Triple(current.first + 1, current.second, current.third)
+            TestResult.ResultType.FAILURE -> Triple(current.first, current.second + 1, current.third)
+            TestResult.ResultType.SKIPPED -> Triple(current.first, current.second, current.third + 1)
+        }
+    }))
+
+    doLast {
+        println("")
+        println("┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
+        println("┃  TEST RESULTS BY CLASS                                                       ┃")
+        println("┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫")
+
+        testClassResults.toSortedMap().forEach { (className, counts) ->
+            val (passed, failed, skipped) = counts
+            val status = when {
+                failed > 0 -> "✗"
+                skipped > 0 && passed > 0 -> "◐"
+                skipped > 0 && passed == 0L -> "○"
+                else -> "✓"
+            }
+            val total = passed + failed + skipped
+            println("┃  $status ${className.take(40).padEnd(40)} $passed/$total passed".padEnd(78) + "┃")
+        }
+
+        val totalPassed = testClassResults.values.sumOf { it.first }
+        val totalFailed = testClassResults.values.sumOf { it.second }
+        val totalSkipped = testClassResults.values.sumOf { it.third }
+        val totalTests = totalPassed + totalFailed + totalSkipped
+        val status = if (totalFailed > 0) "FAILED" else "SUCCESS"
+
+        println("┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫")
+        println("┃  SUMMARY: $status | Total: $totalTests | Passed: $totalPassed | Failed: $totalFailed | Skipped: $totalSkipped".padEnd(78) + "┃")
+        println("┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛")
+    }
+}
+
+jacoco {
+    toolVersion = "0.8.12"
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+    }
+
+    classDirectories.setFrom(
+        files(classDirectories.files.map {
+            fileTree(it) {
+                exclude(
+                    "**/tokenizing/**",  // Tokenizer internals
+                )
+            }
+        })
+    )
+}
+
+tasks.jacocoTestCoverageVerification {
+    dependsOn(tasks.jacocoTestReport)
+
+    violationRules {
+        // Overall project coverage
+        rule {
+            limit {
+                counter = "LINE"
+                value = "COVEREDRATIO"
+                minimum = "0.70".toBigDecimal()
+            }
+        }
+
+        // Core formatting classes - higher standard
+        rule {
+            element = "CLASS"
+            includes = listOf(
+                "io.github.fracturedjson.core.Formatter",
+                "io.github.fracturedjson.core.JsonItem"
+            )
+            limit {
+                counter = "LINE"
+                value = "COVEREDRATIO"
+                minimum = "0.80".toBigDecimal()
+            }
+        }
+    }
+
+    classDirectories.setFrom(
+        files(classDirectories.files.map {
+            fileTree(it) {
+                exclude(
+                    "**/tokenizing/**",           // Tokenizer internals
+                    "**/*Exception*",             // Exception classes
+                    "**/*Companion*",             // Companion objects
+                    "**/NullBuffer*",             // Testing utility
+                )
+            }
+        })
+    )
+}
+
+tasks.register("testWithCoverage") {
+    group = "verification"
+    description = "Runs tests with JaCoCo coverage report and verification"
+
+    dependsOn(tasks.test)
+    dependsOn(tasks.jacocoTestReport)
+    dependsOn(tasks.jacocoTestCoverageVerification)
+
+    doLast {
+        // Parse test results
+        val testResultsDir = layout.buildDirectory.dir("test-results/test").get().asFile
+        var totalTests = 0
+        var passedTests = 0
+        var failedTests = 0
+        var skippedTests = 0
+
+        testResultsDir.listFiles()?.filter { it.extension == "xml" }?.forEach { file ->
+            val content = file.readText()
+            val testsMatch = Regex("""tests="(\d+)"""").find(content)
+            val failuresMatch = Regex("""failures="(\d+)"""").find(content)
+            val errorsMatch = Regex("""errors="(\d+)"""").find(content)
+            val skippedMatch = Regex("""skipped="(\d+)"""").find(content)
+
+            val tests = testsMatch?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            val failures = failuresMatch?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            val errors = errorsMatch?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            val skipped = skippedMatch?.groupValues?.get(1)?.toIntOrNull() ?: 0
+
+            totalTests += tests
+            failedTests += failures + errors
+            skippedTests += skipped
+        }
+        passedTests = totalTests - failedTests - skippedTests
+
+        // Parse coverage from XML
+        val coverageXml = layout.buildDirectory.file("reports/jacoco/test/jacocoTestReport.xml").get().asFile
+        var lineCovered = 0
+        var lineMissed = 0
+        var branchCovered = 0
+        var branchMissed = 0
+
+        if (coverageXml.exists()) {
+            val content = coverageXml.readText()
+            // Get the last (overall) counters
+            val lineMatches = Regex("""<counter type="LINE" missed="(\d+)" covered="(\d+)"/>""").findAll(content).toList()
+            val branchMatches = Regex("""<counter type="BRANCH" missed="(\d+)" covered="(\d+)"/>""").findAll(content).toList()
+
+            if (lineMatches.isNotEmpty()) {
+                val last = lineMatches.last()
+                lineMissed = last.groupValues[1].toInt()
+                lineCovered = last.groupValues[2].toInt()
+            }
+            if (branchMatches.isNotEmpty()) {
+                val last = branchMatches.last()
+                branchMissed = last.groupValues[1].toInt()
+                branchCovered = last.groupValues[2].toInt()
+            }
+        }
+
+        val lineCoverage = if (lineCovered + lineMissed > 0)
+            "%.1f".format(lineCovered * 100.0 / (lineCovered + lineMissed)) else "0.0"
+        val branchCoverage = if (branchCovered + branchMissed > 0)
+            "%.1f".format(branchCovered * 100.0 / (branchCovered + branchMissed)) else "0.0"
+
+        val reportDir = layout.buildDirectory.dir("reports/jacoco/test/html").get().asFile
+
+        println("")
+        println("╔═══════════════════════════════════════════════════════════╗")
+        println("║              TEST & COVERAGE SUMMARY                      ║")
+        println("╠═══════════════════════════════════════════════════════════╣")
+        println("║  Tests:                                                   ║")
+        println("║    Total:   ${totalTests.toString().padEnd(6)} Passed: ${passedTests.toString().padEnd(6)} Failed: ${failedTests.toString().padEnd(6)}  ║")
+        println("║    Skipped: ${skippedTests.toString().padEnd(47)}║")
+        println("╠═══════════════════════════════════════════════════════════╣")
+        println("║  Coverage:                                                ║")
+        println("║    Line:   ${lineCoverage.padEnd(6)}%  (${lineCovered}/${lineCovered + lineMissed})".padEnd(60) + "║")
+        println("║    Branch: ${branchCoverage.padEnd(6)}%  (${branchCovered}/${branchCovered + branchMissed})".padEnd(60) + "║")
+        println("╠═══════════════════════════════════════════════════════════╣")
+        println("║  Report: file://${reportDir.absolutePath}/index.html".take(59).padEnd(59) + "║")
+        println("╚═══════════════════════════════════════════════════════════╝")
+    }
 }
 
 publishing {
@@ -134,7 +335,15 @@ tasks.register("publishToLocalRepo") {
     }
 }
 
+tasks.named("publishMavenPublicationToMavenLocal") {
+    mustRunAfter("testWithCoverage")
+}
+
 tasks.register<Zip>("createMavenCentralBundle") {
+    description = "Creates Maven Central bundle with test verification and coverage check"
+    group = "publishing"
+
+    dependsOn("testWithCoverage")
     dependsOn("publishMavenPublicationToMavenLocal")
 
     val groupPath = project.group.toString().replace(".", "/")
@@ -143,12 +352,18 @@ tasks.register<Zip>("createMavenCentralBundle") {
     val repoDir = file("${System.getProperty("user.home")}/.m2/repository/$groupPath/$artifactId/$ver")
 
     doFirst {
+        println("")
+        println("┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
+        println("┃  GENERATING MAVEN CENTRAL BUNDLE                                            ┃")
+        println("┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛")
+        println("")
+
         repoDir.listFiles()?.filter {
             it.isFile && !it.name.endsWith(".md5") && !it.name.endsWith(".sha1") &&
             !it.name.endsWith(".sha256") && !it.name.endsWith(".sha512")
         }?.forEach { file ->
             generateChecksums(file)
-            println("Generated checksums for: ${file.name}")
+            println("  ✓ Generated checksums for: ${file.name}")
         }
     }
 
@@ -160,9 +375,14 @@ tasks.register<Zip>("createMavenCentralBundle") {
     destinationDirectory.set(layout.buildDirectory.dir("maven-central"))
 
     doLast {
-        println("=====================================")
-        println("Bundle created: ${destinationDirectory.get().asFile}/${archiveFileName.get()}")
-        println("Upload this file to https://central.sonatype.com")
-        println("=====================================")
+        println("")
+        println("┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
+        println("┃  MAVEN CENTRAL BUNDLE READY                                                 ┃")
+        println("┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫")
+        println("┃  Bundle: ${archiveFileName.get()}".padEnd(78) + "┃")
+        println("┃  Location: ${destinationDirectory.get().asFile.absolutePath}".take(77).padEnd(78) + "┃")
+        println("┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫")
+        println("┃  Next step: Upload to https://central.sonatype.com                          ┃")
+        println("┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛")
     }
 }

@@ -20,7 +20,7 @@ A Kotlin port of [FracturedJson](https://github.com/j-brooke/FracturedJson) — 
 
 ```kotlin
 dependencies {
-    implementation("io.github.habinkim:fractured-json-kotlin:0.5.5")
+    implementation("io.github.habinkim:fractured-json-kotlin:0.5.7")
 }
 ```
 
@@ -28,7 +28,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    implementation 'io.github.habinkim:fractured-json-kotlin:0.5.5'
+    implementation 'io.github.habinkim:fractured-json-kotlin:0.5.7'
 }
 ```
 
@@ -38,7 +38,7 @@ dependencies {
 <dependency>
     <groupId>io.github.habinkim</groupId>
     <artifactId>fractured-json-kotlin</artifactId>
-    <version>0.5.5</version>
+    <version>0.5.7</version>
 </dependency>
 ```
 
