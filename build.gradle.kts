@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "io.github.habinkim"
-version = "0.5.0"
+version = "0.5.5"
 description = "FracturedJson - Human-readable JSON formatting for Kotlin"
 
 repositories {
@@ -34,6 +34,7 @@ kotlin {
 }
 
 val jacksonVersion = "2.18.2"
+val gsonVersion = "2.11.0"
 val coroutinesVersion = "1.9.0"
 val serializationVersion = "1.7.3"
 
@@ -44,6 +45,9 @@ dependencies {
 
     // kotlinx.serialization integration
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$serializationVersion")
+
+    // Gson integration
+    implementation("com.google.code.gson:gson:$gsonVersion")
 
     // Coroutines for async formatting
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")

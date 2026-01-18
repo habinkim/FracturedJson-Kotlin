@@ -11,7 +11,7 @@ A Kotlin port of [FracturedJson](https://github.com/j-brooke/FracturedJson) — 
 - **Smart Formatting**: Automatically chooses between inline, compact, and expanded layouts
 - **Table Alignment**: Aligns similar structures like table columns for improved readability
 - **Comment Support**: Preserves `//` and `/* */` comments (JSONC format)
-- **Multiple Adapters**: Works with kotlinx.serialization, Jackson, or built-in parser
+- **Multiple Adapters**: Works with kotlinx.serialization, Jackson, Gson, or built-in parser
 - **Customizable**: Extensive options for line length, indentation, alignment, and more
 
 ## Installation
@@ -20,7 +20,7 @@ A Kotlin port of [FracturedJson](https://github.com/j-brooke/FracturedJson) — 
 
 ```kotlin
 dependencies {
-    implementation("io.github.habinkim:fractured-json-kotlin:0.5.0")
+    implementation("io.github.habinkim:fractured-json-kotlin:0.5.5")
 }
 ```
 
@@ -28,7 +28,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    implementation 'io.github.habinkim:fractured-json-kotlin:0.5.0'
+    implementation 'io.github.habinkim:fractured-json-kotlin:0.5.5'
 }
 ```
 
@@ -38,11 +38,11 @@ dependencies {
 <dependency>
     <groupId>io.github.habinkim</groupId>
     <artifactId>fractured-json-kotlin</artifactId>
-    <version>0.5.0</version>
+    <version>0.5.5</version>
 </dependency>
 ```
 
-> **Note**: This library includes support for both Jackson and kotlinx.serialization. All adapters are bundled in a single artifact.
+> **Note**: This library includes support for Jackson, Gson, and kotlinx.serialization. All adapters are bundled in a single artifact.
 
 ## Usage
 
@@ -89,6 +89,35 @@ val formatted = node.toFracturedJson()
 
 // Format via ObjectMapper extension
 val output = mapper.formatJson(input)
+```
+
+### With Gson
+
+```kotlin
+import io.github.fracturedjson.gson.toFracturedJson
+import io.github.fracturedjson.gson.formatJson
+import io.github.fracturedjson.gson.reformatJsonWithGson
+import io.github.fracturedjson.core.FracturedJsonOptions
+import com.google.gson.Gson
+import com.google.gson.JsonParser
+
+val gson = Gson()
+val input = """{"name":"Alice","age":30,"scores":[95,87,92]}"""
+
+// Format a JsonElement
+val element = JsonParser.parseString(input)
+val formatted = element.toFracturedJson()
+
+// Format via Gson extension
+val output = gson.formatJson(input)
+
+// Format via String extension
+val reformatted = input.reformatJsonWithGson()
+
+// Serialize and format an object
+data class Person(val name: String, val age: Int)
+val person = Person("Alice", 30)
+val personJson = gson.toFracturedJson(person)
 ```
 
 ### With Built-in Parser (Comment Support)
@@ -193,8 +222,9 @@ The library is organized into the following packages:
 | `io.github.habinkim.core.formatting` | Internal formatting utilities (buffers, templates) |
 | `io.github.habinkim.parser` | Built-in JSON parser with comment support |
 | `io.github.habinkim.parser.tokenizing` | Tokenizer for JSON parsing |
-| `io.github.habinkim.jackson` | Jackson `JsonNode` integration and extensions |
-| `io.github.habinkim.kotlinx` | kotlinx.serialization `JsonElement` integration |
+| `io.github.fracturedjson.jackson` | Jackson `JsonNode` integration and extensions |
+| `io.github.fracturedjson.gson` | Gson `JsonElement` integration and extensions |
+| `io.github.fracturedjson.kotlinx` | kotlinx.serialization `JsonElement` integration |
 
 ## Related Projects
 
