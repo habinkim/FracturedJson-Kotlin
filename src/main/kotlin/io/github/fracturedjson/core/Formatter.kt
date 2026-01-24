@@ -206,6 +206,25 @@ class Formatter @JvmOverloads constructor(
         return buffer.asString()
     }
 
+    /**
+     * v0.7.7 format baseline: Object Pooling (pads cache + generation-based skip).
+     * Same as current format() — all optimizations active.
+     */
+    @ForBenchmark(version = "v0.7.7-baseline", description = "Object Pooling with pads cache and generation skip")
+    fun formatBaselineV077(items: List<JsonItem>, startingDepth: Int = 0): String {
+        val buffer = formatToStringBuilder(items, startingDepth)
+        return buffer.asString()
+    }
+
+    /**
+     * v0.7.7 minify baseline: same as v0.7.5 (no minify-side changes in Object Pooling).
+     */
+    @ForBenchmark(version = "v0.7.7-baseline", description = "Object Pooling with pads cache and generation skip")
+    fun minifyBaselineV077(items: List<JsonItem>): String {
+        val buffer = minifyToStringBuilder(items)
+        return buffer.asString()
+    }
+
     // ==================== Core Formatting Logic ====================
 
     /**
