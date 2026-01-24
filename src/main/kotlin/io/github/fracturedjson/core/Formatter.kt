@@ -179,6 +179,25 @@ class Formatter @JvmOverloads constructor(
         return buffer.asString()
     }
 
+    /**
+     * v0.7.5 format baseline: pre-computed valueLength/nameLength in Converters/Parser.
+     * Identical to current format() but archived for future regression comparison.
+     */
+    @ForBenchmark(version = "v0.7.5-baseline", description = "Converter+Measurement integration")
+    fun formatBaselineV075(items: List<JsonItem>, startingDepth: Int = 0): String {
+        val buffer = formatToStringBuilder(items, startingDepth)
+        return buffer.asString()
+    }
+
+    /**
+     * v0.7.5 minify baseline: same as v0.7.3 (no minify-side changes).
+     */
+    @ForBenchmark(version = "v0.7.5-baseline", description = "Converter+Measurement integration")
+    fun minifyBaselineV075(items: List<JsonItem>): String {
+        val buffer = minifyToStringBuilder(items)
+        return buffer.asString()
+    }
+
     // ==================== Core Formatting Logic ====================
 
     /**

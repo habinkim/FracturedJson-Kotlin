@@ -21,9 +21,10 @@ import java.util.concurrent.TimeUnit
  * - v0.7.0: Original (default StringBuilder capacity)
  * - v0.7.1: StringBuilder initial capacity estimation
  * - v0.7.3: StringBuilder capacity + addChar/addQuoted/spaces cache
+ * - v0.7.5: Converter+Measurement integration (pre-computed valueLength/nameLength)
  *
  * Current comparisons:
- * - baseline (v0.7.0) vs baselineV071 (v0.7.1) vs baselineV073 (v0.7.3) vs current (latest)
+ * - baseline (v0.7.0) vs baselineV071 vs baselineV073 vs baselineV075 vs current (latest)
  */
 @BenchmarkMode(Mode.Throughput, Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
@@ -124,6 +125,30 @@ open class BaselineBenchmark {
     @Benchmark
     fun baselineV073_minifyMedium(bh: Blackhole) {
         bh.consume(formatter.minifyBaselineV073(mediumItems))
+    }
+
+    // ─────────────────────────────────────────────
+    // Baseline v0.7.5 (Converter+Measurement integration)
+    // ─────────────────────────────────────────────
+
+    @Benchmark
+    fun baselineV075_formatSmall(bh: Blackhole) {
+        bh.consume(formatter.formatBaselineV075(smallItems))
+    }
+
+    @Benchmark
+    fun baselineV075_formatMedium(bh: Blackhole) {
+        bh.consume(formatter.formatBaselineV075(mediumItems))
+    }
+
+    @Benchmark
+    fun baselineV075_formatLarge(bh: Blackhole) {
+        bh.consume(formatter.formatBaselineV075(largeItems))
+    }
+
+    @Benchmark
+    fun baselineV075_minifyMedium(bh: Blackhole) {
+        bh.consume(formatter.minifyBaselineV075(mediumItems))
     }
 
     // ─────────────────────────────────────────────
