@@ -25,6 +25,14 @@ class Formatter @JvmOverloads constructor(
     private var currentDepth: Int = 0
     private val useDefaultStringLength: Boolean get() = stringLengthFunc === ::stringLengthByCharCount
 
+    // PaddedFormattingTokens cache: avoids recreating on repeated calls with same config
+    private var cachedPads: PaddedFormattingTokens? = null
+    private var cachedOptions: FracturedJsonOptions? = null
+    private var cachedStringLengthFunc: ((String) -> Int)? = null
+    // Config generation counter: increments when pads is recreated, used to skip
+    // computeItemLengths() for items already computed with the same config
+    private var configGeneration: Long = 0
+
     companion object {
         /**
          * Default string length function that counts characters.
@@ -121,7 +129,7 @@ class Formatter @JvmOverloads constructor(
      */
     @ForBenchmark(version = "v0.7.1-baseline", description = "StringBuilder initial capacity estimation for format")
     fun formatBaselineV071(items: List<JsonItem>, startingDepth: Int = 0): String {
-        pads = PaddedFormattingTokens(options, stringLengthFunc)
+        pads = getOrCreatePads()
         currentDepth = startingDepth
 
         for (item in items) {
@@ -205,7 +213,7 @@ class Formatter @JvmOverloads constructor(
      * Computes item lengths first, then allocates a buffer based on the estimated output size.
      */
     private fun formatToStringBuilder(items: List<JsonItem>, startingDepth: Int): StringBuilderBuffer {
-        pads = PaddedFormattingTokens(options, stringLengthFunc)
+        pads = getOrCreatePads()
         currentDepth = startingDepth
 
         // Compute lengths first to enable size estimation
@@ -250,7 +258,7 @@ class Formatter @JvmOverloads constructor(
     }
 
     private fun format(items: List<JsonItem>, startingDepth: Int, buffer: FormattingBuffer) {
-        pads = PaddedFormattingTokens(options, stringLengthFunc)
+        pads = getOrCreatePads()
         currentDepth = startingDepth
 
         // Compute lengths for all items
@@ -842,6 +850,9 @@ class Formatter @JvmOverloads constructor(
     // ==================== Measurement ====================
 
     private fun computeItemLengths(item: JsonItem) {
+        // Skip entirely if this item was already computed with the current config
+        if (item.computedGeneration == configGeneration) return
+
         // Use pre-computed nameLength if available (set by Converter), otherwise compute.
         // When a custom stringLengthFunc is used, always recompute since pre-computed values
         // are based on String.length which may differ from the custom function.
@@ -895,6 +906,7 @@ class Formatter @JvmOverloads constructor(
         }
 
         item.minimumTotalLength = calculateMinimumLength(item)
+        item.computedGeneration = configGeneration
     }
 
     private fun computeContainerLengths(item: JsonItem) {
@@ -950,6 +962,24 @@ class Formatter @JvmOverloads constructor(
         length += item.prefixCommentLength + item.middleCommentLength + item.postfixCommentLength
 
         return length
+    }
+
+    /**
+     * Returns a cached PaddedFormattingTokens instance, recreating only if options or
+     * stringLengthFunc have changed. This avoids repeated allocation of the tokens object
+     * and its internal arrays/strings when formatting multiple items with the same config.
+     */
+    private fun getOrCreatePads(): PaddedFormattingTokens {
+        val cached = cachedPads
+        if (cached != null && cachedOptions === options && cachedStringLengthFunc === stringLengthFunc) {
+            return cached
+        }
+        val newPads = PaddedFormattingTokens(options, stringLengthFunc)
+        cachedPads = newPads
+        cachedOptions = options
+        cachedStringLengthFunc = stringLengthFunc
+        configGeneration++
+        return newPads
     }
 
     // ==================== Utility Methods ====================

@@ -102,6 +102,14 @@ class JsonItem(
     var minimumTotalLength: Int = 0
 
     /**
+     * Config generation counter from the Formatter that last computed this item's lengths.
+     * Used to skip redundant computeItemLengths() calls when the same Formatter
+     * is used repeatedly with unchanged options.
+     */
+    @JvmField
+    internal var computedGeneration: Long = -1
+
+    /**
      * Whether this item requires multiple lines when formatted.
      */
     var requiresMultipleLines: Boolean = false
