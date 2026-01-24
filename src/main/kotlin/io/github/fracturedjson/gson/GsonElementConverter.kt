@@ -33,6 +33,7 @@ object GsonElementConverter {
 
         if (name != null) {
             item.name = name
+            item.nameLength = name.length + 2
         }
 
         return item
@@ -41,6 +42,7 @@ object GsonElementConverter {
     private fun convertNull(): JsonItem {
         return JsonItem(JsonItemType.Null).apply {
             value = "null"
+            valueLength = 4
             complexity = 0
         }
     }
@@ -51,18 +53,23 @@ object GsonElementConverter {
                 val boolVal = primitive.asBoolean
                 JsonItem(if (boolVal) JsonItemType.True else JsonItemType.False).apply {
                     value = boolVal.toString()
+                    valueLength = if (boolVal) 4 else 5
                     complexity = 0
                 }
             }
             primitive.isNumber -> {
                 JsonItem(JsonItemType.Number).apply {
-                    value = primitive.asNumber.toString()
+                    val text = primitive.asNumber.toString()
+                    value = text
+                    valueLength = text.length
                     complexity = 0
                 }
             }
             primitive.isString -> {
                 JsonItem(JsonItemType.String).apply {
-                    value = "\"${escapeString(primitive.asString)}\""
+                    val escaped = escapeString(primitive.asString)
+                    value = "\"$escaped\""
+                    valueLength = escaped.length + 2
                     complexity = 0
                 }
             }

@@ -23,6 +23,7 @@ class Formatter @JvmOverloads constructor(
 ) {
     private lateinit var pads: PaddedFormattingTokens
     private var currentDepth: Int = 0
+    private val useDefaultStringLength: Boolean get() = stringLengthFunc === ::stringLengthByCharCount
 
     companion object {
         /**
@@ -822,9 +823,14 @@ class Formatter @JvmOverloads constructor(
     // ==================== Measurement ====================
 
     private fun computeItemLengths(item: JsonItem) {
-        item.nameLength = if (item.name.isNotEmpty()) {
-            stringLengthFunc(item.name) + 2 // +2 for surrounding quotes
-        } else 0
+        // Use pre-computed nameLength if available (set by Converter), otherwise compute.
+        // When a custom stringLengthFunc is used, always recompute since pre-computed values
+        // are based on String.length which may differ from the custom function.
+        if (item.nameLength < 0 || !useDefaultStringLength) {
+            item.nameLength = if (item.name.isNotEmpty()) {
+                stringLengthFunc(item.name) + 2 // +2 for surrounding quotes
+            } else 0
+        }
 
         item.prefixCommentLength = if (item.prefixComment.isNotEmpty()) {
             stringLengthFunc(item.prefixComment) + pads.commentLen
@@ -852,14 +858,19 @@ class Formatter @JvmOverloads constructor(
                 item.complexity = 0
             }
             JsonItemType.String, JsonItemType.Number -> {
-                item.valueLength = stringLengthFunc(item.value)
+                // Use pre-computed valueLength if available (set by Converter)
+                if (item.valueLength < 0 || !useDefaultStringLength) {
+                    item.valueLength = stringLengthFunc(item.value)
+                }
                 item.complexity = 0
             }
             JsonItemType.Array, JsonItemType.Object -> {
                 computeContainerLengths(item)
             }
             else -> {
-                item.valueLength = stringLengthFunc(item.value)
+                if (item.valueLength < 0 || !useDefaultStringLength) {
+                    item.valueLength = stringLengthFunc(item.value)
+                }
                 item.complexity = 0
             }
         }

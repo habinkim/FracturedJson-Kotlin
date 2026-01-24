@@ -25,6 +25,7 @@ object FastJson2Converter {
         val item = convertObject(obj)
         if (name != null) {
             item.name = name
+            item.nameLength = name.length + 2
         }
         return item
     }
@@ -40,6 +41,7 @@ object FastJson2Converter {
         val item = convertArray(array)
         if (name != null) {
             item.name = name
+            item.nameLength = name.length + 2
         }
         return item
     }
@@ -56,6 +58,7 @@ object FastJson2Converter {
         val item = convertValue(value)
         if (name != null) {
             item.name = name
+            item.nameLength = name.length + 2
         }
         return item
     }
@@ -75,6 +78,7 @@ object FastJson2Converter {
     private fun convertNull(): JsonItem {
         return JsonItem(JsonItemType.Null).apply {
             this.value = "null"
+            valueLength = 4
             complexity = 0
         }
     }
@@ -82,6 +86,7 @@ object FastJson2Converter {
     private fun convertBoolean(value: Boolean): JsonItem {
         return JsonItem(if (value) JsonItemType.True else JsonItemType.False).apply {
             this.value = value.toString()
+            valueLength = if (value) 4 else 5
             complexity = 0
         }
     }
@@ -89,7 +94,7 @@ object FastJson2Converter {
     private fun convertNumber(value: Number): JsonItem {
         return JsonItem(JsonItemType.Number).apply {
             // Preserve original number format as much as possible
-            this.value = when (value) {
+            val text = when (value) {
                 is BigDecimal -> value.toPlainString()
                 is BigInteger -> value.toString()
                 is Double -> {
@@ -102,6 +107,8 @@ object FastJson2Converter {
                 }
                 else -> value.toString()
             }
+            this.value = text
+            valueLength = text.length
             complexity = 0
         }
     }
@@ -119,7 +126,9 @@ object FastJson2Converter {
     private fun convertString(value: String): JsonItem {
         return JsonItem(JsonItemType.String).apply {
             // JSON strings need to be quoted
-            this.value = "\"${escapeString(value)}\""
+            val escaped = escapeString(value)
+            this.value = "\"$escaped\""
+            valueLength = escaped.length + 2
             complexity = 0
         }
     }
@@ -137,7 +146,10 @@ object FastJson2Converter {
 
     private fun convertObject(obj: JSONObject): JsonItem {
         val children = obj.entries.map { (key, value) ->
-            convertValue(value).also { it.name = key }
+            convertValue(value).also {
+                it.name = key
+                it.nameLength = key.length + 2
+            }
         }
 
         return JsonItem(JsonItemType.Object).apply {

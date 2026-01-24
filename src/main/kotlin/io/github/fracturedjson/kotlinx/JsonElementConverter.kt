@@ -28,6 +28,7 @@ object JsonElementConverter {
 
         if (name != null) {
             item.name = name
+            item.nameLength = name.length + 2
         }
 
         return item
@@ -36,6 +37,7 @@ object JsonElementConverter {
     private fun convertNull(): JsonItem {
         return JsonItem(JsonItemType.Null).apply {
             value = "null"
+            valueLength = 4
             complexity = 0
         }
     }
@@ -44,20 +46,25 @@ object JsonElementConverter {
         return when {
             primitive.isString -> JsonItem(JsonItemType.String).apply {
                 // Keep the original JSON string representation (with quotes)
-                value = primitive.toString()
+                val text = primitive.toString()
+                value = text
+                valueLength = text.length
                 complexity = 0
             }
             primitive.booleanOrNull != null -> {
                 val boolVal = primitive.boolean
                 JsonItem(if (boolVal) JsonItemType.True else JsonItemType.False).apply {
                     value = boolVal.toString()
+                    valueLength = if (boolVal) 4 else 5
                     complexity = 0
                 }
             }
             else -> {
                 // Number
                 JsonItem(JsonItemType.Number).apply {
-                    value = primitive.content
+                    val text = primitive.content
+                    value = text
+                    valueLength = text.length
                     complexity = 0
                 }
             }

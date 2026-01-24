@@ -69,13 +69,17 @@ class JsonItem(
 
     /**
      * Calculated length of the name for formatting purposes.
+     * Set to -1 to indicate not yet computed (Formatter will compute).
+     * Converters may pre-compute this to avoid redundant stringLengthFunc calls.
      */
-    var nameLength: Int = 0
+    var nameLength: Int = -1
 
     /**
      * Calculated length of the value for formatting purposes.
+     * Set to -1 to indicate not yet computed (Formatter will compute).
+     * Converters may pre-compute this to avoid redundant stringLengthFunc calls.
      */
-    var valueLength: Int = 0
+    var valueLength: Int = -1
 
     /**
      * Calculated length of the prefix comment for formatting purposes.

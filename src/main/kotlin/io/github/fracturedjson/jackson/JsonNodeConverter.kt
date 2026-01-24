@@ -32,6 +32,7 @@ object JsonNodeConverter {
 
         if (name != null) {
             item.name = name
+            item.nameLength = name.length + 2 // +2 for surrounding quotes
         }
 
         return item
@@ -40,6 +41,7 @@ object JsonNodeConverter {
     private fun convertNull(): JsonItem {
         return JsonItem(JsonItemType.Null).apply {
             value = "null"
+            valueLength = 4
             complexity = 0
         }
     }
@@ -48,6 +50,7 @@ object JsonNodeConverter {
         val boolVal = node.booleanValue()
         return JsonItem(if (boolVal) JsonItemType.True else JsonItemType.False).apply {
             value = boolVal.toString()
+            valueLength = if (boolVal) 4 else 5
             complexity = 0
         }
     }
@@ -55,7 +58,9 @@ object JsonNodeConverter {
     private fun convertNumber(node: JsonNode): JsonItem {
         return JsonItem(JsonItemType.Number).apply {
             // Use the text representation to preserve original format
-            value = node.asText()
+            val text = node.asText()
+            value = text
+            valueLength = text.length
             complexity = 0
         }
     }
@@ -63,7 +68,9 @@ object JsonNodeConverter {
     private fun convertString(node: JsonNode): JsonItem {
         return JsonItem(JsonItemType.String).apply {
             // JSON strings need to be quoted
-            value = "\"${escapeString(node.textValue())}\""
+            val escaped = escapeString(node.textValue())
+            value = "\"$escaped\""
+            valueLength = escaped.length + 2
             complexity = 0
         }
     }

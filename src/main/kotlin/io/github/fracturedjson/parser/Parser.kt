@@ -192,6 +192,7 @@ class Parser @JvmOverloads constructor(
                         ObjectPhase.AfterColon -> {
                             val child = parseSimple(token)
                             child.name = currentPropName
+                            child.nameLength = currentPropName.length + 2
                             child.inputPosition = currentPropPosition
                             attachPrefixComments(child, unplacedComments)
                             attachMiddleComments(child, middleComments, token.inputPosition.row)
@@ -227,6 +228,7 @@ class Parser @JvmOverloads constructor(
                     }
                     val child = parseItem(token, iterator)
                     child.name = currentPropName
+                    child.nameLength = currentPropName.length + 2
                     child.inputPosition = currentPropPosition
                     attachPrefixComments(child, unplacedComments)
                     attachMiddleComments(child, middleComments, token.inputPosition.row)
@@ -256,22 +258,27 @@ class Parser @JvmOverloads constructor(
             TokenType.Null -> {
                 item.type = JsonItemType.Null
                 item.value = "null"
+                item.valueLength = 4
             }
             TokenType.True -> {
                 item.type = JsonItemType.True
                 item.value = "true"
+                item.valueLength = 4
             }
             TokenType.False -> {
                 item.type = JsonItemType.False
                 item.value = "false"
+                item.valueLength = 5
             }
             TokenType.Number -> {
                 item.type = JsonItemType.Number
                 item.value = token.text
+                item.valueLength = token.text.length
             }
             TokenType.String -> {
                 item.type = JsonItemType.String
                 item.value = token.text
+                item.valueLength = token.text.length
             }
             else -> {
                 throw FracturedJsonException.create("Unexpected token type: ${token.type}", token.inputPosition)
