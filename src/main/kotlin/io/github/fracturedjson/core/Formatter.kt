@@ -114,6 +114,50 @@ class Formatter @JvmOverloads constructor(
         return buffer.asString()
     }
 
+    /**
+     * v0.7.1 format baseline: StringBuilder initial capacity optimization.
+     * Uses minimumTotalLength * 2 as capacity estimate after computeItemLengths().
+     */
+    @ForBenchmark(version = "v0.7.1-baseline", description = "StringBuilder initial capacity estimation for format")
+    fun formatBaselineV071(items: List<JsonItem>, startingDepth: Int = 0): String {
+        pads = PaddedFormattingTokens(options, stringLengthFunc)
+        currentDepth = startingDepth
+
+        for (item in items) {
+            computeItemLengths(item)
+        }
+
+        val estimatedSize = (items.sumOf { it.minimumTotalLength } * 2).coerceAtLeast(64)
+        val buffer = StringBuilderBuffer(estimatedSize)
+
+        var needsNewline = false
+        for (item in items) {
+            if (needsNewline) {
+                buffer.endLine(pads.eol)
+            }
+            formatItem(item, buffer, isRoot = true)
+            needsNewline = true
+        }
+
+        buffer.flush()
+        return buffer.asString()
+    }
+
+    /**
+     * v0.7.1 minify baseline: O(1) heuristic capacity estimation.
+     * Uses top-level value lengths / children count as capacity hint.
+     */
+    @ForBenchmark(version = "v0.7.1-baseline", description = "O(1) heuristic capacity estimation for minify")
+    fun minifyBaselineV071(items: List<JsonItem>): String {
+        val estimatedSize = items.sumOf { item ->
+            if (item.value.isNotEmpty()) item.value.length
+            else item.children.size * 32
+        }.coerceAtLeast(256)
+        val buffer = StringBuilderBuffer(estimatedSize)
+        minifyToBuffer(items, buffer)
+        return buffer.asString()
+    }
+
     // ==================== Core Formatting Logic ====================
 
     /**

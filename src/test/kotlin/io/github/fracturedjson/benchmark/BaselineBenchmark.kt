@@ -17,9 +17,12 @@ import java.util.concurrent.TimeUnit
  * As optimizations are applied in Phase 12, new benchmark methods will be
  * added here to compare against the baseline.
  *
+ * Baseline versions:
+ * - v0.7.0: Original (default StringBuilder capacity)
+ * - v0.7.1: StringBuilder initial capacity estimation
+ *
  * Current comparisons:
- * - formatBaseline vs format (will diverge after optimization)
- * - minifyBaseline vs minify (will diverge after optimization)
+ * - baseline (v0.7.0) vs baselineV071 (v0.7.1) vs current (latest)
  */
 @BenchmarkMode(Mode.Throughput, Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
@@ -75,8 +78,31 @@ open class BaselineBenchmark {
     }
 
     // ─────────────────────────────────────────────
-    // Current format (will be optimized in Phase 12)
-    // Initially identical to baseline; will diverge after optimization.
+    // Baseline v0.7.1 (StringBuilder capacity estimation)
+    // ─────────────────────────────────────────────
+
+    @Benchmark
+    fun baselineV071_formatSmall(bh: Blackhole) {
+        bh.consume(formatter.formatBaselineV071(smallItems))
+    }
+
+    @Benchmark
+    fun baselineV071_formatMedium(bh: Blackhole) {
+        bh.consume(formatter.formatBaselineV071(mediumItems))
+    }
+
+    @Benchmark
+    fun baselineV071_formatLarge(bh: Blackhole) {
+        bh.consume(formatter.formatBaselineV071(largeItems))
+    }
+
+    @Benchmark
+    fun baselineV071_minifyMedium(bh: Blackhole) {
+        bh.consume(formatter.minifyBaselineV071(mediumItems))
+    }
+
+    // ─────────────────────────────────────────────
+    // Current format (latest optimization)
     // ─────────────────────────────────────────────
 
     @Benchmark
