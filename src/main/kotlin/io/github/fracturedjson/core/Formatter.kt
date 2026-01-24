@@ -39,8 +39,7 @@ class Formatter @JvmOverloads constructor(
      * @return Formatted JSON string
      */
     fun format(items: List<JsonItem>, startingDepth: Int = 0): String {
-        val buffer = StringBuilderBuffer()
-        format(items, startingDepth, buffer)
+        val buffer = formatToStringBuilder(items, startingDepth)
         return buffer.asString()
     }
 
@@ -74,8 +73,7 @@ class Formatter @JvmOverloads constructor(
      * @return Minified JSON string
      */
     fun minify(items: List<JsonItem>): String {
-        val buffer = StringBuilderBuffer()
-        minifyToBuffer(items, buffer)
+        val buffer = minifyToStringBuilder(items)
         return buffer.asString()
     }
 
@@ -117,6 +115,55 @@ class Formatter @JvmOverloads constructor(
     }
 
     // ==================== Core Formatting Logic ====================
+
+    /**
+     * Formats items into a StringBuilderBuffer with pre-estimated capacity.
+     * Computes item lengths first, then allocates a buffer based on the estimated output size.
+     */
+    private fun formatToStringBuilder(items: List<JsonItem>, startingDepth: Int): StringBuilderBuffer {
+        pads = PaddedFormattingTokens(options, stringLengthFunc)
+        currentDepth = startingDepth
+
+        // Compute lengths first to enable size estimation
+        for (item in items) {
+            computeItemLengths(item)
+        }
+
+        // Estimate output size: pretty-printed JSON is typically 2x the minimum inline length
+        val estimatedSize = (items.sumOf { it.minimumTotalLength } * 2).coerceAtLeast(64)
+        val buffer = StringBuilderBuffer(estimatedSize)
+
+        // Format each item
+        var needsNewline = false
+        for (item in items) {
+            if (needsNewline) {
+                buffer.endLine(pads.eol)
+            }
+            formatItem(item, buffer, isRoot = true)
+            needsNewline = true
+        }
+
+        buffer.flush()
+        return buffer
+    }
+
+    /**
+     * Minifies items into a StringBuilderBuffer with pre-estimated capacity.
+     * Uses a cheap O(1) heuristic based on top-level item value lengths
+     * rather than a recursive traversal which adds more overhead than it saves.
+     */
+    private fun minifyToStringBuilder(items: List<JsonItem>): StringBuilderBuffer {
+        // Use top-level value lengths as a rough capacity hint.
+        // For containers (arrays/objects), value is empty but children hold the data,
+        // so we use a simple multiplier on the number of children as fallback.
+        val estimatedSize = items.sumOf { item ->
+            if (item.value.isNotEmpty()) item.value.length
+            else item.children.size * 32 // rough estimate per child
+        }.coerceAtLeast(256)
+        val buffer = StringBuilderBuffer(estimatedSize)
+        minifyToBuffer(items, buffer)
+        return buffer
+    }
 
     private fun format(items: List<JsonItem>, startingDepth: Int, buffer: FormattingBuffer) {
         pads = PaddedFormattingTokens(options, stringLengthFunc)

@@ -6,8 +6,8 @@ package io.github.fracturedjson.core.formatting
  * This is the most common buffer type, used when you want to get the
  * formatted output as a single string.
  */
-class StringBuilderBuffer : FormattingBuffer {
-    private val buffer = StringBuilder()
+class StringBuilderBuffer(initialCapacity: Int = 16) : FormattingBuffer {
+    private val buffer = StringBuilder(initialCapacity)
 
     override fun add(value: String): FormattingBuffer {
         buffer.append(value)
