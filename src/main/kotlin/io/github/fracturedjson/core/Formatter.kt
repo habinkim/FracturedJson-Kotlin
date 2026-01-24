@@ -90,6 +90,32 @@ class Formatter @JvmOverloads constructor(
         minifyToBuffer(items, buffer)
     }
 
+    // ==================== Baseline Methods (for benchmark comparison) ====================
+
+    /**
+     * Baseline format implementation preserved for benchmark comparison.
+     * Uses StringBuilderBuffer with default initial capacity.
+     * This is the v0.7.0 implementation before any optimization.
+     */
+    @ForBenchmark(version = "v0.7.0-baseline", description = "Original format with default StringBuilder capacity")
+    fun formatBaseline(items: List<JsonItem>, startingDepth: Int = 0): String {
+        val buffer = StringBuilderBuffer()
+        format(items, startingDepth, buffer)
+        return buffer.asString()
+    }
+
+    /**
+     * Baseline minify implementation preserved for benchmark comparison.
+     * Uses StringBuilderBuffer with default initial capacity.
+     * This is the v0.7.0 implementation before any optimization.
+     */
+    @ForBenchmark(version = "v0.7.0-baseline", description = "Original minify with default StringBuilder capacity")
+    fun minifyBaseline(items: List<JsonItem>): String {
+        val buffer = StringBuilderBuffer()
+        minifyToBuffer(items, buffer)
+        return buffer.asString()
+    }
+
     // ==================== Core Formatting Logic ====================
 
     private fun format(items: List<JsonItem>, startingDepth: Int, buffer: FormattingBuffer) {

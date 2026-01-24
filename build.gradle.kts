@@ -3,6 +3,7 @@ import java.security.MessageDigest
 plugins {
     kotlin("jvm") version "2.0.21"
     kotlin("plugin.serialization") version "2.0.21"
+    kotlin("kapt") version "2.0.21"
     `maven-publish`
     signing
     jacoco
@@ -61,10 +62,17 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testImplementation("org.assertj:assertj-core:3.26.3")
+
+    // JMH benchmark dependencies (run via test)
+    testImplementation("org.openjdk.jmh:jmh-core:1.37")
+    testImplementation("org.openjdk.jmh:jmh-generator-annprocess:1.37")
+    kaptTest("org.openjdk.jmh:jmh-generator-annprocess:1.37")
 }
 
 tasks.test {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags("benchmark")
+    }
     finalizedBy(tasks.jacocoTestReport)
 
     testLogging {
@@ -445,5 +453,35 @@ tasks.register<Zip>("createMavenCentralBundle") {
         println("┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫")
         println("┃  Next step: Upload to https://central.sonatype.com                          ┃")
         println("┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛")
+    }
+}
+
+// ============================================================
+// JMH Benchmark Task (runs benchmarks via test infrastructure)
+// ============================================================
+tasks.register<Test>("benchmark") {
+    group = "benchmark"
+    description = "Runs JMH benchmarks via JUnit test runner"
+
+    useJUnitPlatform {
+        includeTags("benchmark")
+    }
+
+    // JVM arguments optimized for benchmarking
+    jvmArgs = listOf("-Xms2g", "-Xmx2g", "-XX:+UseG1GC")
+
+    // Disable JaCoCo for accurate benchmark results
+    extensions.configure<JacocoTaskExtension> {
+        isEnabled = false
+    }
+
+    // Pass benchmark configuration as system properties
+    systemProperty("bench.include", findProperty("bench.include") ?: ".*Benchmark.*")
+    systemProperty("bench.quick", findProperty("bench.quick") ?: "false")
+    systemProperty("bench.profiler", findProperty("bench.profiler") ?: "")
+
+    testLogging {
+        events("started", "passed", "failed")
+        showStandardStreams = true
     }
 }
