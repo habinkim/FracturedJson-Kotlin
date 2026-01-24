@@ -21,11 +21,29 @@ class StringBuilderBuffer(initialCapacity: Int = 16) : FormattingBuffer {
         return this
     }
 
+    override fun addChar(ch: Char): FormattingBuffer {
+        buffer.append(ch)
+        return this
+    }
+
+    override fun addQuoted(value: String): FormattingBuffer {
+        buffer.append('"').append(value).append('"')
+        return this
+    }
+
     override fun spaces(count: Int): FormattingBuffer {
-        repeat(count) {
-            buffer.append(' ')
+        if (count <= 0) return this
+        if (count <= SPACE_CACHE.size) {
+            buffer.append(SPACE_CACHE, 0, count)
+        } else {
+            repeat(count) { buffer.append(' ') }
         }
         return this
+    }
+
+    companion object {
+        // Pre-allocated space string for common indent widths (up to 64 spaces)
+        private val SPACE_CACHE = CharArray(64) { ' ' }
     }
 
     override fun endLine(eolString: String): FormattingBuffer {

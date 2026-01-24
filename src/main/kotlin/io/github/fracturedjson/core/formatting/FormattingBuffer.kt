@@ -18,6 +18,18 @@ interface FormattingBuffer {
     fun add(vararg values: String): FormattingBuffer
 
     /**
+     * Add a single character to the buffer.
+     * More efficient than add(String) for single-character literals.
+     */
+    fun addChar(ch: Char): FormattingBuffer
+
+    /**
+     * Add a string surrounded by double quotes to the buffer.
+     * Avoids allocating an intermediate "\"..\"" string.
+     */
+    fun addQuoted(value: String): FormattingBuffer
+
+    /**
      * Adds the requested number of spaces to the buffer.
      */
     fun spaces(count: Int): FormattingBuffer

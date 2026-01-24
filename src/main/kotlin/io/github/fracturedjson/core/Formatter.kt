@@ -446,7 +446,7 @@ class Formatter @JvmOverloads constructor(
     ) {
         // Format property name if present
         if (item.name.isNotEmpty()) {
-            buffer.add("\"${item.name}\"")
+            buffer.addQuoted(item.name)
             // colonBeforePropNamePadding: if true, colon comes right after name ("name":    value)
             // if false, padding comes before colon ("name   : value")
             if (options.colonBeforePropNamePadding) {
@@ -506,7 +506,7 @@ class Formatter @JvmOverloads constructor(
 
             // Output property name if this is an object
             if (child.name.isNotEmpty()) {
-                buffer.add("\"${child.name}\"")
+                buffer.addQuoted(child.name)
                 buffer.add(pads.colon)
             }
 
@@ -745,7 +745,7 @@ class Formatter @JvmOverloads constructor(
     private fun formatPropertyName(item: JsonItem, buffer: FormattingBuffer, namePadding: Int) {
         if (item.name.isEmpty()) return
 
-        buffer.add("\"${item.name}\"")
+        buffer.addQuoted(item.name)
 
         // colonBeforePropNamePadding: if true, colon comes right after name ("name":    value)
         // if false, padding comes before colon ("name   : value")
@@ -770,7 +770,7 @@ class Formatter @JvmOverloads constructor(
 
         // Property name
         if (item.name.isNotEmpty()) {
-            buffer.add("\"${item.name}\"")
+            buffer.addQuoted(item.name)
             buffer.add(pads.colon)
         }
 
@@ -803,7 +803,7 @@ class Formatter @JvmOverloads constructor(
 
     private fun computeItemLengths(item: JsonItem) {
         item.nameLength = if (item.name.isNotEmpty()) {
-            stringLengthFunc("\"${item.name}\"")
+            stringLengthFunc(item.name) + 2 // +2 for surrounding quotes
         } else 0
 
         item.prefixCommentLength = if (item.prefixComment.isNotEmpty()) {
@@ -936,7 +936,7 @@ class Formatter @JvmOverloads constructor(
     private fun minifyItem(item: JsonItem, buffer: FormattingBuffer) {
         when (item.type) {
             JsonItemType.Array -> {
-                buffer.add("[")
+                buffer.addChar('[')
                 val children = item.children.filter {
                     it.type != JsonItemType.BlankLine &&
                     it.type != JsonItemType.LineComment &&
@@ -944,15 +944,16 @@ class Formatter @JvmOverloads constructor(
                 }
                 for ((index, child) in children.withIndex()) {
                     if (child.name.isNotEmpty()) {
-                        buffer.add("\"${child.name}\":")
+                        buffer.addQuoted(child.name)
+                        buffer.addChar(':')
                     }
                     minifyItem(child, buffer)
-                    if (index < children.size - 1) buffer.add(",")
+                    if (index < children.size - 1) buffer.addChar(',')
                 }
-                buffer.add("]")
+                buffer.addChar(']')
             }
             JsonItemType.Object -> {
-                buffer.add("{")
+                buffer.addChar('{')
                 val children = item.children.filter {
                     it.type != JsonItemType.BlankLine &&
                     it.type != JsonItemType.LineComment &&
@@ -960,12 +961,13 @@ class Formatter @JvmOverloads constructor(
                 }
                 for ((index, child) in children.withIndex()) {
                     if (child.name.isNotEmpty()) {
-                        buffer.add("\"${child.name}\":")
+                        buffer.addQuoted(child.name)
+                        buffer.addChar(':')
                     }
                     minifyItem(child, buffer)
-                    if (index < children.size - 1) buffer.add(",")
+                    if (index < children.size - 1) buffer.addChar(',')
                 }
-                buffer.add("}")
+                buffer.addChar('}')
             }
             JsonItemType.BlankLine, JsonItemType.LineComment, JsonItemType.BlockComment -> {
                 // Skip in minified output

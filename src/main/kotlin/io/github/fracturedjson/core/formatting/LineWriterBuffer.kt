@@ -25,11 +25,28 @@ class LineWriterBuffer(private val writer: Writer) : FormattingBuffer {
         return this
     }
 
+    override fun addChar(ch: Char): FormattingBuffer {
+        lineBuffer.append(ch)
+        return this
+    }
+
+    override fun addQuoted(value: String): FormattingBuffer {
+        lineBuffer.append('"').append(value).append('"')
+        return this
+    }
+
     override fun spaces(count: Int): FormattingBuffer {
-        repeat(count) {
-            lineBuffer.append(' ')
+        if (count <= 0) return this
+        if (count <= SPACE_CACHE.size) {
+            lineBuffer.append(SPACE_CACHE, 0, count)
+        } else {
+            repeat(count) { lineBuffer.append(' ') }
         }
         return this
+    }
+
+    companion object {
+        private val SPACE_CACHE = CharArray(64) { ' ' }
     }
 
     override fun endLine(eolString: String): FormattingBuffer {

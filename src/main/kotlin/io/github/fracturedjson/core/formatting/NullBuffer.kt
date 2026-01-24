@@ -11,6 +11,10 @@ object NullBuffer : FormattingBuffer {
 
     override fun add(vararg values: String): FormattingBuffer = this
 
+    override fun addChar(ch: Char): FormattingBuffer = this
+
+    override fun addQuoted(value: String): FormattingBuffer = this
+
     override fun spaces(count: Int): FormattingBuffer = this
 
     override fun endLine(eolString: String): FormattingBuffer = this
