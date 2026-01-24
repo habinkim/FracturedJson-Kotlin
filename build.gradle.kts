@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "io.github.habinkim"
-version = "0.7.1"
+version = "0.7.3"
 description = "FracturedJson - Human-readable JSON formatting for Kotlin"
 
 repositories {

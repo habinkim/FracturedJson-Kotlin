@@ -158,6 +158,26 @@ class Formatter @JvmOverloads constructor(
         return buffer.asString()
     }
 
+    /**
+     * v0.7.3 format baseline: StringBuilder capacity + string concat optimization.
+     * Uses addChar/addQuoted/spaces cache via formatToStringBuilder path.
+     */
+    @ForBenchmark(version = "v0.7.3-baseline", description = "StringBuilder capacity + addChar/addQuoted/spaces cache")
+    fun formatBaselineV073(items: List<JsonItem>, startingDepth: Int = 0): String {
+        val buffer = formatToStringBuilder(items, startingDepth)
+        return buffer.asString()
+    }
+
+    /**
+     * v0.7.3 minify baseline: O(1) capacity + addChar/addQuoted optimization.
+     * Uses minifyToStringBuilder path with char-level append in minifyItem.
+     */
+    @ForBenchmark(version = "v0.7.3-baseline", description = "O(1) capacity + addChar/addQuoted in minify")
+    fun minifyBaselineV073(items: List<JsonItem>): String {
+        val buffer = minifyToStringBuilder(items)
+        return buffer.asString()
+    }
+
     // ==================== Core Formatting Logic ====================
 
     /**
